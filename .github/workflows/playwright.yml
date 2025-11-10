@@ -1,4 +1,4 @@
-name: Playwright + Healer
+name: Playwright CI + Auto PR
 
 on:
   push:
@@ -11,41 +11,61 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  TEST_CMD: "npx playwright test --retries=2 --reporter=html,junit"
+  SNAPSHOT_GLOB: "__snapshots__|\\.snap(\\.png)?$"
+
 jobs:
-  test:
-    name: Run Playwright and heal if needed
+  playwright:
+    name: Run Playwright and open PR on diffs
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Setup Node (LTS) + npm cache
+      - name: Setup Node.js (LTS) with npm cache
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run tests (save report)
-        run: npx playwright test --reporter=html,junit
+      - name: Run tests
+        run: $TEST_CMD
         continue-on-error: true
 
-      - name: Upload Playwright HTML report
+      - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
-          
-      - name: Try Healer (Playwright Agents)
+
+      # --- Healing público e estável hoje: snapshots visuais ---
+      - name: Detect visual snapshot diffs
+        id: snapdiff
+        run: |
+          changed=$(git ls-files -mo --exclude-standard | grep -E "${SNAPSHOT_GLOB}" | wc -l || true)
+          echo "changed_snapshots=$changed" >> $GITHUB_OUTPUT
+          echo "Changed snapshots: $changed"
+
+      - name: Apply snapshot updates
+        if: steps.snapdiff.outputs.changed_snapshots != '0'
+        run: npx playwright test --update-snapshots
+
+      # --- (Opcional) Healer dos Agents, só se existir no seu Playwright ---
+      - name: Try Playwright Healer (agents)
         id: healer
         run: |
           set +e
@@ -58,27 +78,35 @@ jobs:
           fi
           set -e
 
-      - name: Commit healer changes
-        if: steps.healer.outputs.healer_available == 'true'
+      - name: Detect repo changes after healing
+        id: gitdiff
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git checkout -B chore/auto-heal-playwright
-            git add -A
-            git commit -m "chore: auto-heal: Playwright Agents Healer"
-          else
-            echo "No changes from healer"
-          fi
+          files=$(git status --porcelain | wc -l)
+          echo "files_changed=$files" >> $GITHUB_OUTPUT
+          echo "Git changes:"
+          git status --porcelain
 
-      - name: Create PR for healer changes
-        if: steps.healer.outputs.healer_available == 'true'
+      - name: Commit to branch
+        if: steps.gitdiff.outputs.files_changed != '0'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="chore/auto-heal-playwright"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "chore: auto-heal: Playwright updates (snapshots and/or healer)"
+
+      - name: Create Pull Request
+        if: steps.gitdiff.outputs.files_changed != '0'
         uses: peter-evans/create-pull-request@v6
         with:
           branch: chore/auto-heal-playwright
-          title: "chore: auto-heal by Playwright Healer"
+          title: "chore: auto-heal Playwright"
           body: |
-            PR automático com correções aplicadas pelo Healer (Playwright Agents).
-            Verifique selectors, timeouts ou ajustes em testes corrigidos.
-          commit-message: "chore: auto-heal: Playwright Agents Healer"
-          labels: ci,test,healer
+            PR automático a partir da CI.
+            - Testes executados com `${{ env.TEST_CMD }}`
+            - Snapshots visuais atualizados quando necessário
+            - Healer dos Agents aplicado quando disponível
+            - Relatório HTML anexado como artifact
+          commit-message: "chore: auto-heal: Playwright updates"
+          labels: ci,test,auto-heal

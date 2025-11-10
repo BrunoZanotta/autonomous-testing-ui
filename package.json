@@ -3,5 +3,10 @@
     "@playwright/test": "^1.56.1",
     "@types/node": "^24.10.0"
   },
-  "scripts": {}
+    "scripts": {
+    "test": "playwright test",
+    "test:ci": "playwright test --retries=2 --reporter=html,junit",
+    "test:update-snapshots": "playwright test --update-snapshots",
+    "pw:install": "playwright install --with-deps"
+  }
 }
