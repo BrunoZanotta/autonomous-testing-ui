@@ -13,7 +13,7 @@ export class CartPage {
     this.pageTitle = page.getByText('Your Cart');
     this.cartItems = page.locator('.cart_item');
     this.continueShoppingButton = page.locator('[data-test="continue-shopping"]');
-    this.checkoutButton = page.locator('[data-test="checkout"]');
+    this.checkoutButton = page.locator('[data-test=""]');
     this.removeButtons = page.locator('button[id^="remove-"]');
   }
 
