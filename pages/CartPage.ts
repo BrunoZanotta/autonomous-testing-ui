@@ -41,6 +41,15 @@ export class CartPage {
     await expect(cartItem.locator('.inventory_item_price')).toHaveText(product.price);
   }
 
+  async assertProductDetailsInCartByKey(productKey: StoreProductKey) {
+    const product = STORE_PRODUCTS[productKey];
+    const cartItem = this.getCartItemByName(product.name);
+
+    await expect(cartItem.locator('.inventory_item_name')).toHaveText(product.name);
+    await expect(cartItem.locator('.inventory_item_desc')).toContainText(product.descriptionSnippet);
+    await expect(cartItem.locator('.inventory_item_price')).toHaveText(product.price);
+  }
+
   async assertProductNotInCartByKey(productKey: StoreProductKey) {
     const cartItem = this.getCartItemByName(STORE_PRODUCTS[productKey].name);
     await expect(cartItem).toHaveCount(0);

@@ -193,6 +193,18 @@ export class InventoryPage {
     await expect(productImage).toHaveAttribute('alt', productData.name);
   }
 
+  async assertProductCardDetailsFor(productKey: StoreProductKey) {
+    const productData = STORE_PRODUCTS[productKey];
+    const product = this.getProductByName(productData.name);
+    const productImage = product.locator('img');
+
+    await expect(product.locator('.inventory_item_name')).toHaveText(productData.name);
+    await expect(product.locator('.inventory_item_desc')).toContainText(productData.descriptionSnippet);
+    await expect(product.locator('.inventory_item_price')).toHaveText(productData.price);
+    await expect(productImage).toBeVisible();
+    await expect(productImage).toHaveAttribute('alt', productData.name);
+  }
+
   async assertProductCardTitleDescriptionAndImageByName(productName: string) {
     const product = this.getProductByName(productName);
     const productTitle = product.locator('.inventory_item_name');

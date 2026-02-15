@@ -145,16 +145,45 @@ export class CheckoutPage {
     await expect(this.page.locator('.inventory_item_price', { hasText: product.price })).toBeVisible();
   }
 
+  private parseMoneyValue(text: string): number {
+    const match = text.match(/\$([0-9]+(?:\.[0-9]{1,2})?)/);
+    if (!match) {
+      throw new Error(`Could not parse money value from: ${text}`);
+    }
+
+    return Number(match[1]);
+  }
+
   async getSubtotal(): Promise<string> {
-    return await this.subtotalLabel.textContent() || '';
+    return (await this.subtotalLabel.textContent()) || '';
   }
 
   async getTax(): Promise<string> {
-    return await this.taxLabel.textContent() || '';
+    return (await this.taxLabel.textContent()) || '';
   }
 
   async getTotal(): Promise<string> {
-    return await this.totalLabel.textContent() || '';
+    return (await this.totalLabel.textContent()) || '';
+  }
+
+  async assertSubtotalEqualsProductSum(productKeys: StoreProductKey[]) {
+    const expectedSubtotal = productKeys.reduce((sum, key) => {
+      const productPrice = Number(STORE_PRODUCTS[key].price.replace('$', ''));
+      return sum + productPrice;
+    }, 0);
+
+    const subtotalText = await this.getSubtotal();
+    const subtotalValue = this.parseMoneyValue(subtotalText);
+
+    expect(subtotalValue).toBeCloseTo(expectedSubtotal, 2);
+  }
+
+  async assertTotalEqualsSubtotalPlusTax() {
+    const subtotalValue = this.parseMoneyValue(await this.getSubtotal());
+    const taxValue = this.parseMoneyValue(await this.getTax());
+    const totalValue = this.parseMoneyValue(await this.getTotal());
+
+    expect(totalValue).toBeCloseTo(subtotalValue + taxValue, 2);
   }
 
   async assertCheckoutComplete() {
