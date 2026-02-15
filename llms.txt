@@ -13,10 +13,12 @@ Execute the full delivery workflow in `## Mandatory Delivery Workflow`.
 If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 
 1. Pick next card in `Ready`
-2. Create tests from card requirements
-3. Run validation and governance gate
-4. Create branch, commit, push, PR
-5. Move card to `In Review`
+2. Create branch
+3. Move card to `In progress` immediately after branch creation
+4. Create tests from card requirements
+5. Run validation and governance gate
+6. Commit, push, open PR
+7. Move card to `In review`
 
 ## Mandatory Delivery Workflow (End-to-End)
 
@@ -26,12 +28,13 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - Validate required tools: `node`, `npm`, `npx`, `git`, `gh`
 - Validate GitHub Project scopes for gh token: `read:project` and `project`
 
-2. Branch Creation
+2. Branch Creation + Card Transition
 - Create branch using pattern: `<type>/<scope>-<slug>`
 - Examples:
   - `feat/checkout-invalid-zip`
   - `fix/inventory-sort-stability`
   - `chore/test-governance-rules`
+- Immediately move project card `Ready -> In progress`
 
 3. Test Planning and Generation
 - Use `.github/agents/playwright/qa-planner.agent.md` for scenario design.
@@ -79,7 +82,8 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - Run full flow:
   - `./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main`
 - Move item manually when required:
-  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In Review"`
+  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In progress"`
+  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In review"`
 
 10. Final Response Contract
 - Return:
@@ -89,7 +93,7 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
   - PR URL (or fallback command)
   - checks executed
   - governance gate result
-  - card transition result (`Ready -> In Review`)
+  - card transition result (`Ready -> In progress -> In review`)
   - blocking issues (if any)
 
 ## Non-Negotiable Rules
@@ -113,8 +117,9 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 
 ## CI Alignment
 
-The CI workflow includes governance blocking in:
+CI workflows:
 - `.github/workflows/playwright.yml`
+- `.github/workflows/project-ready-orchestrator.yml` (scheduler for card-driven automation)
 
 Local policy script:
 - `scripts/ci/governance-gate.sh`
@@ -124,3 +129,12 @@ Delivery scripts:
 - `scripts/git/project-ready-item.sh`
 - `scripts/git/project-ready-to-pr.sh`
 - `scripts/git/project-move-item.sh`
+
+## Scheduler Runtime Config
+
+Required:
+- Secret `GH_PROJECT_TOKEN` (repo + project scopes)
+
+Recommended:
+- Variable `PROJECT_READY_WORK_CMD` (default implementation command)
+  - Example: `bash ./scripts/git/project-ready-work.sh`

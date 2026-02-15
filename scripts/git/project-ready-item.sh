@@ -30,10 +30,15 @@ if echo "$AUTH_STATUS" | grep -q "not logged into"; then
   echo "error: gh is not authenticated. Run: gh auth login" >&2
   exit 1
 fi
-if ! echo "$AUTH_STATUS" | grep -Eq "Token scopes:.*(read:project|project)"; then
-  echo "error: missing GitHub Project scope (read:project/project)." >&2
-  echo "run: gh auth refresh -s read:project -s project" >&2
-  exit 1
+
+# In CI with GH_TOKEN/GITHUB_TOKEN, gh auth status may not print token scopes.
+# In this case, rely on GraphQL call permission checks instead of static scope parsing.
+if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]]; then
+  if ! echo "$AUTH_STATUS" | grep -Eq "Token scopes:.*(read:project|project)"; then
+    echo "error: missing GitHub Project scope (read:project/project)." >&2
+    echo "run: gh auth refresh -s read:project -s project" >&2
+    exit 1
+  fi
 fi
 
 QUERY='query($owner:String!, $number:Int!) {

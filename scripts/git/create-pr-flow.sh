@@ -22,6 +22,7 @@ COMMIT_MESSAGE="$2"
 BASE_BRANCH="${3:-main}"
 PR_TITLE="${4:-$COMMIT_MESSAGE}"
 PR_BODY_FILE="${5:-}"
+SKIP_BRANCH_PREP="${SKIP_BRANCH_PREP:-0}"
 
 require_cmd() {
   local cmd="$1"
@@ -43,21 +44,31 @@ if ! git remote get-url origin >/dev/null 2>&1; then
   exit 1
 fi
 
-# Ensure base branch is up to date
 CURRENT_BRANCH="$(git branch --show-current)"
-git fetch origin "$BASE_BRANCH"
-if git show-ref --verify --quiet "refs/heads/$BASE_BRANCH"; then
-  git checkout "$BASE_BRANCH"
-  git pull --ff-only origin "$BASE_BRANCH"
-else
-  git checkout -b "$BASE_BRANCH" "origin/$BASE_BRANCH"
-fi
 
-# Create or switch target branch
-if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-  git checkout "$BRANCH_NAME"
+if [[ "$SKIP_BRANCH_PREP" != "1" ]]; then
+  # Ensure base branch is up to date
+  git fetch origin "$BASE_BRANCH"
+  if git show-ref --verify --quiet "refs/heads/$BASE_BRANCH"; then
+    git checkout "$BASE_BRANCH"
+    git pull --ff-only origin "$BASE_BRANCH"
+  else
+    git checkout -b "$BASE_BRANCH" "origin/$BASE_BRANCH"
+  fi
+
+  # Create or switch target branch
+  if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+    git checkout "$BRANCH_NAME"
+  else
+    git checkout -b "$BRANCH_NAME"
+  fi
 else
-  git checkout -b "$BRANCH_NAME"
+  # Ensure we are on target branch when branch prep is skipped
+  if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+    git checkout "$BRANCH_NAME"
+  else
+    git checkout -b "$BRANCH_NAME"
+  fi
 fi
 
 # Run governance gate if available
@@ -76,7 +87,8 @@ fi
 # Stage and commit
 git add -A
 if git diff --cached --quiet; then
-  echo "No staged changes to commit."
+  echo "error: no staged changes detected; refusing to create empty PR." >&2
+  exit 2
 else
   git commit -m "$COMMIT_MESSAGE"
 fi
