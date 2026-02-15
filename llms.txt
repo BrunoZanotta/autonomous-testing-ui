@@ -12,7 +12,9 @@ Execute the full delivery workflow in `## Mandatory Delivery Workflow`.
 
 If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 
-1. Pick next card in `Ready`
+1. Pick next eligible card in `Ready` using priority rules:
+- work type first: `bugfix` before `newTest`
+- then priority label: `P0` before `P1` before `P2`
 2. Create branch
 3. Move card to `In progress` immediately after branch creation
 4. Create tests from card requirements
@@ -29,11 +31,12 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - Validate GitHub Project scopes for gh token: `read:project` and `project`
 
 2. Branch Creation + Card Transition
-- Create branch using pattern: `<type>/<scope>-<slug>`
-- Examples:
-  - `feat/checkout-invalid-zip`
-  - `fix/inventory-sort-stability`
-  - `chore/test-governance-rules`
+- Ready cards must include one work-type label:
+  - `bug` (or `bugfix`) => work type `bugfix`
+  - `new test` (or `newtest`/`new-test`/`new_test`) => work type `newTest`
+- Create branch using work-type prefix:
+  - `bugfix/<slug>`
+  - `newTest/<slug>`
 - Immediately move project card `Ready -> In progress`
 
 3. Test Planning and Generation
@@ -77,7 +80,7 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
   - PR opened on GitHub (or exact fallback command if `gh` unavailable)
 
 9. Project Card Transition (when card-driven flow is used)
-- Fetch ready item:
+- Fetch prioritized ready item:
   - `./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
 - Run full flow:
   - `./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main`
@@ -88,6 +91,8 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 10. Final Response Contract
 - Return:
   - card/item processed (if applicable)
+  - work type (`bugfix` or `newTest`)
+  - priority label (`P0`/`P1`/`P2`/`NONE`)
   - branch name
   - commit SHA
   - PR URL (or fallback command)
@@ -104,6 +109,7 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - No prohibited waits (`networkidle`).
 - Do not bypass failed governance checks.
 - Do not use destructive git operations unless explicitly requested.
+- Do not auto-process `Ready` card without work-type label (`bug` or `new test`).
 
 ## Agent Registry
 
@@ -138,3 +144,7 @@ Required:
 Recommended:
 - Variable `PROJECT_READY_WORK_CMD` (default implementation command)
   - Example: `bash ./scripts/git/project-ready-work.sh`
+
+Project label conventions:
+- Work type labels: `bug` or `new test`
+- Priority labels: `P0`, `P1`, `P2`

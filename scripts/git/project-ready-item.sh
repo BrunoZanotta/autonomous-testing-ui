@@ -68,6 +68,7 @@ QUERY='query($owner:String!, $number:Int!) {
               body
               url
               repository { nameWithOwner }
+              labels(first:30) { nodes { name } }
             }
             ... on PullRequest {
               id
@@ -76,6 +77,7 @@ QUERY='query($owner:String!, $number:Int!) {
               body
               url
               repository { nameWithOwner }
+              labels(first:30) { nodes { name } }
             }
             ... on DraftIssue {
               id
@@ -119,7 +121,7 @@ if [[ -z "$STATUS_FIELD_ID" || "$STATUS_FIELD_ID" == "null" ]]; then
   exit 1
 fi
 
-READY_ITEM_JSON="$(echo "$PROJECT_JSON" | jq -c --arg ready "$READY_STATUS" --arg repo "$REPO_FILTER" '
+READY_ITEMS_JSON="$(echo "$PROJECT_JSON" | jq -c --arg ready "$READY_STATUS" --arg repo "$REPO_FILTER" '
   .items.nodes
   | map(select(
       ((.fieldValues.nodes | map(select(.field.name == "Status") | .name) | first) == $ready)
@@ -129,13 +131,51 @@ READY_ITEM_JSON="$(echo "$PROJECT_JSON" | jq -c --arg ready "$READY_STATUS" --ar
         or (.content.__typename == "PullRequest" and .content.repository.nameWithOwner == $repo)
       )
     ))
-  | first
 ')"
 
-if [[ "$READY_ITEM_JSON" == "null" || -z "$READY_ITEM_JSON" ]]; then
+READY_COUNT="$(echo "$READY_ITEMS_JSON" | jq 'length')"
+if [[ "$READY_COUNT" -eq 0 ]]; then
   echo '{"status":"NO_WORK","message":"No Ready item found."}'
   exit 2
 fi
+
+ELIGIBLE_READY_ITEMS_JSON="$(echo "$READY_ITEMS_JSON" | jq -c '
+  map(
+    . as $item
+    | ($item.content.__typename // "Unknown") as $content_type
+    | (if ($content_type == "Issue" or $content_type == "PullRequest")
+       then (($item.content.labels.nodes // []) | map(.name))
+       else []
+      end) as $labels
+    | ($labels | map(ascii_downcase)) as $labels_norm
+    | (if ($labels_norm | any(. == "bug" or . == "bugfix")) then "bugfix"
+       elif ($labels_norm | any(. == "new test" or . == "newtest" or . == "new-test" or . == "new_test")) then "newTest"
+       else "unknown"
+      end) as $work_type
+    | (if ($labels_norm | any(. == "p0")) then "P0"
+       elif ($labels_norm | any(. == "p1")) then "P1"
+       elif ($labels_norm | any(. == "p2")) then "P2"
+       else "NONE"
+      end) as $priority_label
+    | . + {
+        labels: $labels,
+        work_type: $work_type,
+        priority_label: $priority_label,
+        work_type_rank: (if $work_type == "bugfix" then 0 elif $work_type == "newTest" then 1 else 9 end),
+        priority_rank: (if $priority_label == "P0" then 0 elif $priority_label == "P1" then 1 elif $priority_label == "P2" then 2 else 9 end)
+      }
+  )
+  | map(select(.work_type != "unknown"))
+  | sort_by(.work_type_rank, .priority_rank, (try (.content.number | tonumber) catch 999999999), (.content.title // ""), .id)
+')"
+
+ELIGIBLE_COUNT="$(echo "$ELIGIBLE_READY_ITEMS_JSON" | jq 'length')"
+if [[ "$ELIGIBLE_COUNT" -eq 0 ]]; then
+  echo '{"status":"NO_WORK","message":"Ready cards found but none eligible. Required labels: bug or new test."}'
+  exit 2
+fi
+
+READY_ITEM_JSON="$(echo "$ELIGIBLE_READY_ITEMS_JSON" | jq -c 'first')"
 
 PROJECT_ID="$(echo "$PROJECT_JSON" | jq -r '.id')"
 ITEM_ID="$(echo "$READY_ITEM_JSON" | jq -r '.id')"
@@ -145,6 +185,9 @@ BODY="$(echo "$READY_ITEM_JSON" | jq -r '.content.body // ""')"
 CONTENT_URL="$(echo "$READY_ITEM_JSON" | jq -r '.content.url // ""')"
 ISSUE_NUMBER="$(echo "$READY_ITEM_JSON" | jq -r '.content.number // empty')"
 REPOSITORY="$(echo "$READY_ITEM_JSON" | jq -r '.content.repository.nameWithOwner // empty')"
+WORK_TYPE="$(echo "$READY_ITEM_JSON" | jq -r '.work_type // "unknown"')"
+PRIORITY_LABEL="$(echo "$READY_ITEM_JSON" | jq -r '.priority_label // "NONE"')"
+LABELS_JSON="$(echo "$READY_ITEM_JSON" | jq -c '.labels // []')"
 
 jq -n \
   --arg status "READY_ITEM_FOUND" \
@@ -160,6 +203,9 @@ jq -n \
   --arg content_url "$CONTENT_URL" \
   --arg issue_number "$ISSUE_NUMBER" \
   --arg repository "$REPOSITORY" \
+  --arg work_type "$WORK_TYPE" \
+  --arg priority_label "$PRIORITY_LABEL" \
+  --argjson labels "$LABELS_JSON" \
   '{
     status: $status,
     owner: $owner,
@@ -173,5 +219,8 @@ jq -n \
     body: $body,
     content_url: $content_url,
     issue_number: $issue_number,
-    repository: $repository
+    repository: $repository,
+    work_type: $work_type,
+    priority_label: $priority_label,
+    labels: $labels
   }'
