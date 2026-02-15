@@ -125,7 +125,8 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 
 CI workflows:
 - `.github/workflows/playwright.yml`
-- `.github/workflows/project-ready-orchestrator.yml` (scheduler for card-driven automation)
+- `.github/workflows/project-ready-scheduler.yml` (cron ticker every 5 minutes, off top-of-hour)
+- `.github/workflows/project-ready-orchestrator.yml` (executor for card-driven branch/test/gate/PR flow)
 
 Local policy script:
 - `scripts/ci/governance-gate.sh`
@@ -137,6 +138,9 @@ Delivery scripts:
 - `scripts/git/project-move-item.sh`
 
 ## Scheduler Runtime Config
+
+Cadence:
+- `project-ready-scheduler.yml` ticks at minutes `3,8,13,18,23,28,33,38,43,48,53,58` (UTC).
 
 Required:
 - Secret `GH_PROJECT_TOKEN` (repo + project scopes)

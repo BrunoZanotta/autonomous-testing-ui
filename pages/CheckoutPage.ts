@@ -141,8 +141,14 @@ export class CheckoutPage {
 
   async assertProductInOverviewByKey(productKey: StoreProductKey) {
     const product = STORE_PRODUCTS[productKey];
-    await expect(this.page.getByText(product.name)).toBeVisible();
-    await expect(this.page.locator('.inventory_item_price', { hasText: product.price })).toBeVisible();
+    const overviewItem = this.page.locator('.cart_item', {
+      has: this.page.locator('.inventory_item_name', { hasText: product.name }),
+    });
+
+    await expect(overviewItem).toHaveCount(1);
+    await expect(overviewItem.locator('.inventory_item_name')).toHaveText(product.name);
+    await expect(overviewItem.locator('.inventory_item_desc')).toContainText(product.descriptionSnippet);
+    await expect(overviewItem.locator('.inventory_item_price')).toHaveText(product.price);
   }
 
   private parseMoneyValue(text: string): number {
