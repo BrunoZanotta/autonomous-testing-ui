@@ -11,6 +11,15 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  BASE_URL: ${{ vars.BASE_URL }}
+  APP_USER_STANDARD_USERNAME: ${{ vars.APP_USER_STANDARD_USERNAME }}
+  APP_USER_STANDARD_PASSWORD: ${{ secrets.APP_USER_STANDARD_PASSWORD }}
+  APP_USER_LOCKED_USERNAME: ${{ vars.APP_USER_LOCKED_USERNAME }}
+  APP_USER_LOCKED_PASSWORD: ${{ secrets.APP_USER_LOCKED_PASSWORD }}
+  APP_USER_INVALID_USERNAME: ${{ vars.APP_USER_INVALID_USERNAME }}
+  APP_USER_INVALID_PASSWORD: ${{ secrets.APP_USER_INVALID_PASSWORD }}
+
 jobs:
   # Stage 1: Authentication Tests (CRITICAL - Must Pass First)
   auth-tests:
