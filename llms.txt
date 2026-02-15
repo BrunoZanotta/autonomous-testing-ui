@@ -4,16 +4,27 @@ Last updated: 2026-02-15
 
 This file defines the mandatory workflow for AI agents in this repository.
 
-## Trigger
+## Trigger A: User asks to create a new automated test
 
-When the user asks to create a new automated UI test, execute the full delivery workflow below.
+Execute the full delivery workflow in `## Mandatory Delivery Workflow`.
+
+## Trigger B: Project card enters Ready
+
+If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
+
+1. Pick next card in `Ready`
+2. Create tests from card requirements
+3. Run validation and governance gate
+4. Create branch, commit, push, PR
+5. Move card to `In Review`
 
 ## Mandatory Delivery Workflow (End-to-End)
 
 1. Preflight
 - Validate git repository and remote: `git status`, `git remote -v`
 - Validate branch base (default `main`)
-- Validate required tools: `node`, `npm`, `npx`, `git`
+- Validate required tools: `node`, `npm`, `npx`, `git`, `gh`
+- Validate GitHub Project scopes for gh token: `read:project` and `project`
 
 2. Branch Creation
 - Create branch using pattern: `<type>/<scope>-<slug>`
@@ -30,14 +41,15 @@ When the user asks to create a new automated UI test, execute the full delivery 
   - `pages/` selectors, actions, assertions, domain data
   - `tests/` orchestration/steps only
 
-4. Test Execution
+4. Healing and Refactoring
+- If tests fail, use `.github/agents/playwright/qa-healer.agent.md`
+- If structure/maintainability needs improvement, use `.github/agents/playwright/qa-test-refactorer.agent.md`
+- Re-run until stable or produce explicit blocker report
+
+5. Test Execution
 - Run discovery: `npx playwright test --list --project=chromium`
 - Run relevant test scope first (targeted tests)
 - Run broader regression/smoke scope when applicable
-
-5. Healing (If Needed)
-- If tests fail, use `.github/agents/playwright/qa-healer.agent.md`
-- Re-run until stable or produce explicit blocker report
 
 6. Governance and Security Gate (Mandatory)
 - Execute: `./scripts/ci/governance-gate.sh governance-gate-report.md`
@@ -50,6 +62,7 @@ When the user asks to create a new automated UI test, execute the full delivery 
   - `fix(scope): summary`
   - `refactor(scope): summary`
   - `chore(scope): summary`
+  - `test(scope): summary`
 - Never commit `.env`, tokens, secrets, private keys
 
 8. Push and PR Creation
@@ -60,13 +73,23 @@ When the user asks to create a new automated UI test, execute the full delivery 
   - branch pushed to origin
   - PR opened on GitHub (or exact fallback command if `gh` unavailable)
 
-9. Final Response Contract
+9. Project Card Transition (when card-driven flow is used)
+- Fetch ready item:
+  - `./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
+- Run full flow:
+  - `./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main`
+- Move item manually when required:
+  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In Review"`
+
+10. Final Response Contract
 - Return:
+  - card/item processed (if applicable)
   - branch name
   - commit SHA
   - PR URL (or fallback command)
   - checks executed
   - governance gate result
+  - card transition result (`Ready -> In Review`)
   - blocking issues (if any)
 
 ## Non-Negotiable Rules
@@ -83,8 +106,10 @@ When the user asks to create a new automated UI test, execute the full delivery 
 - Planner: `.github/agents/playwright/qa-planner.agent.md`
 - Generator: `.github/agents/playwright/qa-generator.agent.md`
 - Healer: `.github/agents/playwright/qa-healer.agent.md`
+- Refactorer: `.github/agents/playwright/qa-test-refactorer.agent.md`
 - Governance: `.github/agents/playwright/qa-governance-guardian.agent.md`
 - GitOps/PR: `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
+- Project Ready Orchestrator: `.github/agents/playwright/github-project-ready-pr-orchestrator.agent.md`
 
 ## CI Alignment
 
@@ -94,5 +119,8 @@ The CI workflow includes governance blocking in:
 Local policy script:
 - `scripts/ci/governance-gate.sh`
 
-Delivery script:
+Delivery scripts:
 - `scripts/git/create-pr-flow.sh`
+- `scripts/git/project-ready-item.sh`
+- `scripts/git/project-ready-to-pr.sh`
+- `scripts/git/project-move-item.sh`

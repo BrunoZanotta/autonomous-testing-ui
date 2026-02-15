@@ -15,8 +15,10 @@ Este projeto demonstra o poder do **Playwright 1.56** com **agentes de IA integr
 - **QA Strategy Planner**: Analisa o site e gera um plano de testes em Markdown
 - **QA Automation Generator**: Transforma o plano em código Playwright pronto para execução
 - **QA Reliability Healer**: Executa os testes e corrige automaticamente falhas de seletor, timeout e visibilidade
+- **QA Test Refactorer**: Refatora testes para manter padrao arquitetural, reduzir duplicacao e evitar flakiness
 - **QA Governance Guardian**: Faz o gate final de qualidade, arquitetura e segurança para impedir quebra de regras
 - **GitOps PR Orchestrator**: Cria branch, gera commit, faz push e abre PR no GitHub com guardrails
+- **GitHub Project Ready PR Orchestrator**: Consome card em Ready, entrega testes e move card para In Review apos PR
 
 ### 🏗️ **Arquitetura Profissional**
 - **Page Object Model (POM)**: Código organizado e reutilizável
@@ -50,8 +52,10 @@ autonomous-testing-ui/
 │   │       ├── qa-planner.agent.md
 │   │       ├── qa-generator.agent.md
 │   │       ├── qa-healer.agent.md
+│   │       ├── qa-test-refactorer.agent.md
 │   │       ├── qa-governance-guardian.agent.md
-│   │       └── gitops-pr-orchestrator.agent.md
+│   │       ├── gitops-pr-orchestrator.agent.md
+│   │       └── github-project-ready-pr-orchestrator.agent.md
 │   ├── workflows/
 │   │   └── playwright.yml  # CI/CD em stages
 └── playwright.config.ts
@@ -92,8 +96,10 @@ Este repositório versiona os agentes em um padrão profissional em:
 - `.github/agents/playwright/qa-planner.agent.md`
 - `.github/agents/playwright/qa-generator.agent.md`
 - `.github/agents/playwright/qa-healer.agent.md`
+- `.github/agents/playwright/qa-test-refactorer.agent.md`
 - `.github/agents/playwright/qa-governance-guardian.agent.md`
 - `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
+- `.github/agents/playwright/github-project-ready-pr-orchestrator.agent.md`
 
 Se quiser bootstrap automático do Playwright, você ainda pode usar:
 
@@ -147,6 +153,34 @@ Use este agent para automatizar entrega:
 Script de apoio:
 ```bash
 ./scripts/git/create-pr-flow.sh <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]
+```
+
+### 6️⃣ QA Test Refactorer – Refatoracao Contínua
+
+Use este agent quando houver necessidade de melhorar estrutura dos testes:
+- remover duplicacao
+- mover assertions e selectors para Page Objects
+- reforcar padrao fixtures/pages/tests
+
+### 7️⃣ GitHub Project Ready PR Orchestrator – Ready -> In Review
+
+Pre-requisito de escopo no gh:
+```bash
+gh auth refresh -s read:project -s project
+```
+
+Use este agent para operacao automatizada via GitHub Project:
+- buscar card em `Ready` no projeto `BrunoZanotta/3`
+- criar branch e testes automatizados
+- rodar testes e governance gate
+- criar commit e abrir PR
+- mover card para `In Review` apos criacao do PR
+
+Scripts de apoio:
+```bash
+./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready
+./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
+./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In Review"
 ```
 
 ---
