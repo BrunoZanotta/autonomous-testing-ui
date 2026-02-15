@@ -129,3 +129,12 @@ Delivery scripts:
 - `scripts/git/project-ready-item.sh`
 - `scripts/git/project-ready-to-pr.sh`
 - `scripts/git/project-move-item.sh`
+
+## Scheduler Runtime Config
+
+Required:
+- Secret `GH_PROJECT_TOKEN` (repo + project scopes)
+
+Recommended:
+- Variable `PROJECT_READY_WORK_CMD` (default implementation command)
+  - Example: `bash ./scripts/git/project-ready-work.sh`

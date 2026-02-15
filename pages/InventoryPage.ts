@@ -193,6 +193,22 @@ export class InventoryPage {
     await expect(productImage).toHaveAttribute('alt', productData.name);
   }
 
+  async assertProductCardTitleDescriptionAndImageByName(productName: string) {
+    const product = this.getProductByName(productName);
+    const productTitle = product.locator('.inventory_item_name');
+    const productDescription = product.locator('.inventory_item_desc');
+    const productImage = product.locator('img');
+
+    await expect(productTitle).toHaveText(productName);
+    await expect(productDescription).toBeVisible();
+
+    const descriptionText = ((await productDescription.textContent()) ?? '').trim();
+    expect(descriptionText.length).toBeGreaterThan(0);
+
+    await expect(productImage).toBeVisible();
+    await expect(productImage).toHaveAttribute('alt', productName);
+  }
+
   async assertAllProductsHaveRequiredElements() {
     const count = await this.inventoryItems.count();
     for (let i = 0; i < count; i++) {

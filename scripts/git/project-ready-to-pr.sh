@@ -55,6 +55,7 @@ fi
 
 ITEM_ID="$(echo "$READY_JSON" | jq -r '.item_id')"
 CARD_TITLE="$(echo "$READY_JSON" | jq -r '.title')"
+CARD_BODY="$(echo "$READY_JSON" | jq -r '.body // empty')"
 ISSUE_NUMBER="$(echo "$READY_JSON" | jq -r '.issue_number // empty')"
 CONTENT_TYPE="$(echo "$READY_JSON" | jq -r '.content_type // empty')"
 
@@ -94,6 +95,18 @@ prepare_branch "$BASE_BRANCH" "$BRANCH_NAME"
 
 # 2) Immediately mark card as in progress
 ./scripts/git/project-move-item.sh "$OWNER" "$PROJECT_NUMBER" "$ITEM_ID" "$IN_PROGRESS_STATUS"
+
+# Expose card context for WORK_CMD scripts.
+export PROJECT_OWNER="$OWNER"
+export PROJECT_NUMBER="$PROJECT_NUMBER"
+export PROJECT_REPO_FULL_NAME="$REPO_FULL_NAME"
+export PROJECT_BASE_BRANCH="$BASE_BRANCH"
+export PROJECT_BRANCH_NAME="$BRANCH_NAME"
+export PROJECT_CARD_ITEM_ID="$ITEM_ID"
+export PROJECT_CARD_TITLE="$CARD_TITLE"
+export PROJECT_CARD_BODY="$CARD_BODY"
+export PROJECT_CARD_CONTENT_TYPE="$CONTENT_TYPE"
+export PROJECT_CARD_ISSUE_NUMBER="$ISSUE_NUMBER"
 
 # 3) Execute implementation command (if provided)
 if [[ -n "${WORK_CMD:-}" ]]; then
