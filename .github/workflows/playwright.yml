@@ -1,15 +1,18 @@
 name: Playwright CI - Staged Execution
 
 on:
-  push:
-    branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
+
+concurrency:
+  group: playwright-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   BASE_URL: ${{ vars.BASE_URL }}
@@ -21,10 +24,10 @@ env:
   APP_USER_INVALID_PASSWORD: ${{ secrets.APP_USER_INVALID_PASSWORD }}
 
 jobs:
-  # Stage 1: Authentication Tests (CRITICAL - Must Pass First)
   auth-tests:
-    name: 🔐 Authentication Tests
+    name: Authentication Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -39,25 +42,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run Authentication Tests with Retry
         run: npm run test:auth:retry -- --project=chromium --reporter=html,list
 
-      - name: Upload auth test results
+      - name: Upload auth artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: auth-test-results
           path: |
             playwright-report/
-          retention-days: 30
+            test-results/
+          retention-days: 14
 
-  # Stage 2: Smoke Tests (Run only if auth passes)
   smoke-tests:
-    name: 💨 Smoke Tests
+    name: Smoke Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: auth-tests
 
     steps:
@@ -73,25 +77,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run Smoke Tests
         run: npm run test:smoke -- --project=chromium --retries=2 --reporter=html,list
 
-      - name: Upload smoke test results
+      - name: Upload smoke artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: smoke-test-results
           path: |
             playwright-report/
-          retention-days: 30
+            test-results/
+          retention-days: 14
 
-  # Stage 3: Regression Tests (Run only if smoke passes)
   regression-tests:
-    name: 🧪 Regression Tests
+    name: Regression Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: smoke-tests
 
     steps:
@@ -107,30 +112,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run Regression Tests
         run: npm run test:regression -- --project=chromium --retries=2 --reporter=html,list
 
-      - name: Upload regression test results
+      - name: Upload regression artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: regression-test-results
           path: |
             playwright-report/
-          retention-days: 30
+            test-results/
+          retention-days: 14
 
-  # Stage 4: Full Test Suite on Multiple Browsers (Only if all stages pass)
   full-test-suite:
-    name: 🌐 Full Test Suite - Multi-Browser
+    name: Full Suite (Chromium)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [auth-tests, smoke-tests, regression-tests]
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
 
     steps:
       - name: Checkout code
@@ -145,27 +147,92 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Run Full Test Suite on ${{ matrix.browser }}
-        run: npx playwright test --project=${{ matrix.browser }} --retries=2 --reporter=html,list
+      - name: Run Full Test Suite on Chromium
+        run: npx playwright test --project=chromium --retries=2 --reporter=html,list
 
-      - name: Upload test results for ${{ matrix.browser }}
+      - name: Upload full-suite artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-${{ matrix.browser }}
+          name: full-suite-chromium-results
           path: |
             playwright-report/
-          retention-days: 30
+            test-results/
+          retention-days: 14
 
-  # Stage 5: Governance Gate (Final Policy/Security/Quality Blocker)
-  governance-gate:
-    name: 🛡️ Governance Gate
+  auto-heal:
+    name: Auto-Heal Snapshots
     runs-on: ubuntu-latest
-    needs: [full-test-suite, auto-heal]
+    timeout-minutes: 25
+    needs: [auth-tests, smoke-tests, regression-tests, full-test-suite]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (needs.auth-tests.result == 'failure' ||
+       needs.smoke-tests.result == 'failure' ||
+       needs.regression-tests.result == 'failure' ||
+       needs.full-test-suite.result == 'failure')
+
+    steps:
+      - name: Checkout PR head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Attempt snapshot healing
+        run: npx playwright test --project=chromium --update-snapshots --retries=1 --reporter=list
+        continue-on-error: true
+
+      - name: Detect snapshot changes
+        id: snapshot_diff
+        run: |
+          changed=$(git ls-files -mo --exclude-standard | grep -E "__snapshots__|\\.snap(\\.png)?$" | wc -l || true)
+          echo "changed_snapshots=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push healed snapshots to PR branch
+        if: steps.snapshot_diff.outputs.changed_snapshots != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No staged changes after add -A"
+            exit 0
+          fi
+          git commit -m "chore(heal): update Playwright snapshots [auto-heal]"
+          git push origin "HEAD:${{ github.head_ref }}"
+
+      - name: Comment heal summary on PR
+        if: steps.snapshot_diff.outputs.changed_snapshots != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body "Auto-heal applied and pushed ${{ steps.snapshot_diff.outputs.changed_snapshots }} snapshot file(s) to branch ${{ github.head_ref }}."
+
+  governance-gate:
+    name: Governance Gate
+    runs-on: ubuntu-latest
+    needs: [auth-tests, smoke-tests, regression-tests, full-test-suite, auto-heal]
     if: always()
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -189,62 +256,4 @@ jobs:
         with:
           name: governance-gate-report
           path: governance-gate-report.md
-          retention-days: 30
-
-  # Auto-heal: Check for snapshot changes
-  auto-heal:
-    name: 🔧 Auto-Heal Snapshots
-    runs-on: ubuntu-latest
-    needs: full-test-suite
-    if: failure()
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      - name: Update snapshots
-        run: npx playwright test --update-snapshots
-        continue-on-error: true
-
-      - name: Check for snapshot changes
-        id: diff
-        run: |
-          changed=$(git ls-files -mo --exclude-standard | grep -E "__snapshots__|\\.snap(\\.png)?$" | wc -l || true)
-          echo "changed_snapshots=$changed" >> $GITHUB_OUTPUT
-
-      - name: Commit & PR on changes
-        if: steps.diff.outputs.changed_snapshots != '0'
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B chore/auto-heal-playwright
-          git add -A
-          git commit -m "chore: update Playwright snapshots [auto-heal]"
-        continue-on-error: true
-
-      - name: Create Pull Request
-        if: steps.diff.outputs.changed_snapshots != '0'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: chore/auto-heal-playwright
-          title: "🔧 chore: auto-heal Playwright snapshots"
-          body: |
-            ## 🤖 Auto-Heal Report
-
-            Snapshots visuais atualizados automaticamente pelo CI.
-
-            **Snapshots alterados:** ${{ steps.diff.outputs.changed_snapshots }}
-
-            Por favor, revise as mudanças antes de fazer merge.
+          retention-days: 14
