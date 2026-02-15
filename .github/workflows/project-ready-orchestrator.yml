@@ -1,9 +1,10 @@
 name: Project Ready Orchestrator
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - project-ready-tick
 
 permissions:
   contents: write
@@ -18,6 +19,7 @@ jobs:
   ready-to-pr:
     name: Ready -> Branch/Test/PR -> In review
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
       BASE_URL: ${{ vars.BASE_URL }}
@@ -33,6 +35,12 @@ jobs:
       WORK_CMD: ${{ vars.PROJECT_READY_WORK_CMD }}
 
     steps:
+      - name: Print trigger context
+        run: |
+          echo "event=${GITHUB_EVENT_NAME}"
+          echo "ref=${GITHUB_REF}"
+          date -u '+%Y-%m-%d %H:%M:%S UTC'
+
       - name: Validate automation token
         id: token
         run: |
