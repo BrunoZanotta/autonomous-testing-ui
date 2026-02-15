@@ -1,0 +1,99 @@
+name: Project Ready Orchestrator
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  projects: write
+
+concurrency:
+  group: project-ready-orchestrator
+  cancel-in-progress: false
+
+jobs:
+  ready-to-pr:
+    name: Ready -> Branch/Test/PR -> In review
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+      BASE_URL: ${{ vars.BASE_URL }}
+      APP_USER_STANDARD_USERNAME: ${{ vars.APP_USER_STANDARD_USERNAME }}
+      APP_USER_STANDARD_PASSWORD: ${{ secrets.APP_USER_STANDARD_PASSWORD }}
+      APP_USER_LOCKED_USERNAME: ${{ vars.APP_USER_LOCKED_USERNAME }}
+      APP_USER_LOCKED_PASSWORD: ${{ secrets.APP_USER_LOCKED_PASSWORD }}
+      APP_USER_INVALID_USERNAME: ${{ vars.APP_USER_INVALID_USERNAME }}
+      APP_USER_INVALID_PASSWORD: ${{ secrets.APP_USER_INVALID_PASSWORD }}
+      READY_STATUS: Ready
+      IN_PROGRESS_STATUS: In progress
+      IN_REVIEW_STATUS: In review
+      WORK_CMD: ${{ vars.PROJECT_READY_WORK_CMD }}
+
+    steps:
+      - name: Validate automation token
+        id: token
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GH_PROJECT_TOKEN is not configured. Skipping orchestrator run."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout code
+        if: steps.token.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Quick check for Ready card
+        if: steps.token.outputs.enabled == 'true'
+        id: ready
+        run: |
+          set +e
+          ready_json="$(./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready 2>&1)"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 2 ]; then
+            echo "has_work=false" >> "$GITHUB_OUTPUT"
+            echo "No card in Ready."
+            exit 0
+          fi
+
+          if [ "$status" -ne 0 ]; then
+            echo "$ready_json"
+            exit "$status"
+          fi
+
+          echo "has_work=true" >> "$GITHUB_OUTPUT"
+          echo "$ready_json"
+
+      - name: Setup Node.js
+        if: steps.ready.outputs.has_work == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ready.outputs.has_work == 'true'
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.ready.outputs.has_work == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure git identity
+        if: steps.ready.outputs.has_work == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Ready to PR flow
+        if: steps.ready.outputs.has_work == 'true'
+        run: ./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main

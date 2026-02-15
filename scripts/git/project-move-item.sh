@@ -4,7 +4,7 @@ set -euo pipefail
 # Usage:
 #   ./scripts/git/project-move-item.sh <owner> <project_number> <item_id> <target_status>
 # Example:
-#   ./scripts/git/project-move-item.sh BrunoZanotta 3 PVTI_xxx "In Review"
+#   ./scripts/git/project-move-item.sh BrunoZanotta 3 PVTI_xxx "In review"
 
 OWNER="${1:-}"
 PROJECT_NUMBER="${2:-}"
@@ -30,10 +30,15 @@ if echo "$AUTH_STATUS" | grep -q "not logged into"; then
   echo "error: gh is not authenticated. Run: gh auth login" >&2
   exit 1
 fi
-if ! echo "$AUTH_STATUS" | grep -Eq "Token scopes:.*project"; then
-  echo "error: missing GitHub Project write scope (project)." >&2
-  echo "run: gh auth refresh -s project" >&2
-  exit 1
+
+# In CI with GH_TOKEN/GITHUB_TOKEN, gh auth status may not print token scopes.
+# In this case, rely on GraphQL mutation permission checks instead of static scope parsing.
+if [[ -z "${GH_TOKEN:-}" && -z "${GITHUB_TOKEN:-}" ]]; then
+  if ! echo "$AUTH_STATUS" | grep -Eq "Token scopes:.*project"; then
+    echo "error: missing GitHub Project write scope (project)." >&2
+    echo "run: gh auth refresh -s project" >&2
+    exit 1
+  fi
 fi
 
 QUERY='query($owner:String!, $number:Int!) {

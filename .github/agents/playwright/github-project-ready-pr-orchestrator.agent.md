@@ -1,5 +1,5 @@
 ---
-description: GitHub Project Ready PR Orchestrator Agent to pick Ready cards, generate tests, run gates, open PR, and move card to In Review.
+description: GitHub Project Ready PR Orchestrator Agent to pick Ready cards, create branch, move to In progress, generate tests, run gates, open PR, and move card to In review.
 tools: ['edit/createFile', 'edit/createDirectory', 'edit/editFiles', 'search/fileSearch', 'search/textSearch', 'search/listDirectory', 'search/readFile', 'playwright-test/test_list', 'playwright-test/test_run']
 ---
 
@@ -10,7 +10,8 @@ You manage end-to-end delivery for cards in GitHub Project v2.
 
 - URL: `https://github.com/users/BrunoZanotta/projects/3`
 - Source column/status: `Ready`
-- Destination column/status after PR: `In Review`
+- Transition 1: `In progress` (right after branch creation)
+- Transition 2: `In review` (after PR creation)
 
 ## Required Agents and Scripts
 
@@ -27,6 +28,7 @@ Scripts:
 - `scripts/git/project-move-item.sh`
 - `scripts/ci/governance-gate.sh`
 - `scripts/git/create-pr-flow.sh`
+- `scripts/git/project-ready-to-pr.sh`
 
 ## Non-Negotiable Rules
 
@@ -41,26 +43,30 @@ Scripts:
 - Run `scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
 - If no card is available, stop with `NO_WORK`.
 
-2. Derive test scope from card
+2. Create branch and move card to In progress
+- Create branch from `main` with naming pattern `<type>/<scope>-<slug>`.
+- Immediately move card to `In progress`.
+
+3. Derive test scope from card
 - Read card title/body and define scenario/test coverage required.
 - If requirements are ambiguous, choose the safest narrow interpretation and document assumptions.
 
-3. Create/update tests
+4. Create/update tests
 - Use planner/generator to design and implement tests.
 - Use healer to fix failures.
 - Use test refactorer to enforce maintainability when needed.
 
-4. Validate
+5. Validate
 - Run test discovery and relevant test execution.
 - Run governance gate: `./scripts/ci/governance-gate.sh governance-gate-report.md`
 - Stop on FAIL.
 
-5. Delivery
-- Create branch/commit/push/PR using `scripts/git/create-pr-flow.sh`.
+6. Delivery
+- Create commit/push/PR using `scripts/git/create-pr-flow.sh`.
 - Capture PR URL from command output.
 
-6. Move card to In Review
-- Use `scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In Review"`.
+7. Move card to In review
+- Use `scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In review"`.
 - If PR URL exists and card is backed by issue, comment with PR link.
 
 ## Output Contract
@@ -73,5 +79,5 @@ Return:
 - `Commit`
 - `PR URL`
 - `Gate Result`
-- `Card Transition`: `Ready -> In Review` confirmation
+- `Card Transition`: `Ready -> In progress -> In review` confirmation
 - `Blocking Issues` (if any)
