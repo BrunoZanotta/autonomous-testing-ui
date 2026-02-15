@@ -18,7 +18,6 @@ export default defineConfig({
   },
   reporter: [
     ['html', { open: 'never' }],
-    ['junit', { outputFile: 'junit.xml' }],
     ['list'],
   ],
   use: {

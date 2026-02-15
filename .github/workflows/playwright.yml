@@ -34,7 +34,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Authentication Tests with Retry
-        run: npm run test:auth:retry -- --project=chromium --reporter=html,junit,list
+        run: npm run test:auth:retry -- --project=chromium --reporter=html,list
 
       - name: Upload auth test results
         uses: actions/upload-artifact@v4
@@ -43,7 +43,6 @@ jobs:
           name: auth-test-results
           path: |
             playwright-report/
-            junit.xml
           retention-days: 30
 
   # Stage 2: Smoke Tests (Run only if auth passes)
@@ -69,7 +68,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Smoke Tests
-        run: npm run test:smoke -- --project=chromium --retries=2 --reporter=html,junit,list
+        run: npm run test:smoke -- --project=chromium --retries=2 --reporter=html,list
 
       - name: Upload smoke test results
         uses: actions/upload-artifact@v4
@@ -78,7 +77,6 @@ jobs:
           name: smoke-test-results
           path: |
             playwright-report/
-            junit.xml
           retention-days: 30
 
   # Stage 3: Regression Tests (Run only if smoke passes)
@@ -104,7 +102,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Regression Tests
-        run: npm run test:regression -- --project=chromium --retries=2 --reporter=html,junit,list
+        run: npm run test:regression -- --project=chromium --retries=2 --reporter=html,list
 
       - name: Upload regression test results
         uses: actions/upload-artifact@v4
@@ -113,7 +111,6 @@ jobs:
           name: regression-test-results
           path: |
             playwright-report/
-            junit.xml
           retention-days: 30
 
   # Stage 4: Full Test Suite on Multiple Browsers (Only if all stages pass)
@@ -143,7 +140,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Full Test Suite on ${{ matrix.browser }}
-        run: npx playwright test --project=${{ matrix.browser }} --retries=2 --reporter=html,junit,list
+        run: npx playwright test --project=${{ matrix.browser }} --retries=2 --reporter=html,list
 
       - name: Upload test results for ${{ matrix.browser }}
         uses: actions/upload-artifact@v4
@@ -152,7 +149,6 @@ jobs:
           name: test-results-${{ matrix.browser }}
           path: |
             playwright-report/
-            junit.xml
           retention-days: 30
 
   # Stage 5: Governance Gate (Final Policy/Security/Quality Blocker)

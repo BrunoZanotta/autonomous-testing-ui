@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "playwright test",
-    "test:ci": "playwright test --retries=2 --reporter=html,junit",
+    "test:ci": "playwright test --retries=2 --reporter=html",
     "test:update-snapshots": "playwright test --update-snapshots",
     "test:auth": "playwright test --grep @auth",
     "test:auth:retry": "playwright test --grep @auth --retries=3",
