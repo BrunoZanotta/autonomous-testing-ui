@@ -3,13 +3,14 @@ import { LoginPage } from '../pages/LoginPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { CartPage } from '../pages/CartPage';
 import { CheckoutPage } from '../pages/CheckoutPage';
-import { TEST_USERS } from '../utils/testData';
+import { AuthSessionPage } from '../pages/AuthSessionPage';
 
 type PageObjects = {
   loginPage: LoginPage;
   inventoryPage: InventoryPage;
   cartPage: CartPage;
   checkoutPage: CheckoutPage;
+  authSessionPage: AuthSessionPage;
 };
 
 type AuthenticatedPageFixture = {
@@ -34,12 +35,12 @@ export const test = base.extend<PageObjects & AuthenticatedPageFixture>({
     await use(new CheckoutPage(page));
   },
 
-  // Authenticated page fixture - auto-login
-  authenticatedPage: async ({ page }, use) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login(TEST_USERS.standard.username, TEST_USERS.standard.password);
-    await loginPage.assertLoginSuccess();
+  authSessionPage: async ({ page }, use) => {
+    await use(new AuthSessionPage(page));
+  },
+
+  authenticatedPage: async ({ page, authSessionPage }, use) => {
+    await authSessionPage.bootstrapAuthenticatedSession();
     await use(page);
   },
 });

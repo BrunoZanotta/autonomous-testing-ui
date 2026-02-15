@@ -1,4 +1,33 @@
 import { Page, Locator, expect } from '@playwright/test';
+import { APP_URLS } from './LoginPage';
+import { STORE_PRODUCTS, StoreProductKey } from './InventoryPage';
+
+export const CHECKOUT_PROFILES = {
+  valid: {
+    firstName: 'John',
+    lastName: 'Doe',
+    postalCode: '12345',
+  },
+  alternative: {
+    firstName: 'Jane',
+    lastName: 'Smith',
+    postalCode: '54321',
+  },
+} as const;
+
+export type CheckoutProfileKey = keyof typeof CHECKOUT_PROFILES;
+
+export const CHECKOUT_EXPECTED = {
+  paymentMethod: 'SauceCard #31337',
+  shippingMethod: 'Free Pony Express Delivery!',
+  completeHeader: 'Thank you for your order!',
+} as const;
+
+export const CHECKOUT_ERROR_MESSAGES = {
+  firstNameRequired: 'Error: First Name is required',
+  lastNameRequired: 'Error: Last Name is required',
+  postalCodeRequired: 'Error: Postal Code is required',
+} as const;
 
 export class CheckoutPage {
   readonly page: Page;
@@ -46,14 +75,17 @@ export class CheckoutPage {
   }
 
   async assertOnCheckoutInfoPage() {
+    await expect(this.page).toHaveURL(new RegExp(`${APP_URLS.checkoutStepOne}$`));
     await expect(this.checkoutInfoTitle).toBeVisible();
   }
 
   async assertOnCheckoutOverviewPage() {
+    await expect(this.page).toHaveURL(new RegExp(`${APP_URLS.checkoutStepTwo}$`));
     await expect(this.checkoutOverviewTitle).toBeVisible();
   }
 
   async assertOnCheckoutCompletePage() {
+    await expect(this.page).toHaveURL(new RegExp(`${APP_URLS.checkoutComplete}$`));
     await expect(this.checkoutCompleteTitle).toBeVisible();
   }
 
@@ -61,6 +93,11 @@ export class CheckoutPage {
     await this.firstNameInput.fill(firstName);
     await this.lastNameInput.fill(lastName);
     await this.postalCodeInput.fill(postalCode);
+  }
+
+  async fillCheckoutInformationFromProfile(profile: CheckoutProfileKey) {
+    const customer = CHECKOUT_PROFILES[profile];
+    await this.fillCheckoutInformation(customer.firstName, customer.lastName, customer.postalCode);
   }
 
   async clickContinue() {
@@ -94,12 +131,18 @@ export class CheckoutPage {
     await expect(this.page.getByText(method)).toBeVisible();
   }
 
-  async assertProductInOverview(productName: string) {
-    await expect(this.page.getByText(productName)).toBeVisible();
+  async assertDefaultPaymentMethod() {
+    await this.assertPaymentMethod(CHECKOUT_EXPECTED.paymentMethod);
   }
 
-  async assertProductPriceInOverview(price: string) {
-    await expect(this.page.locator('.inventory_item_price', { hasText: price })).toBeVisible();
+  async assertDefaultShippingMethod() {
+    await this.assertShippingMethod(CHECKOUT_EXPECTED.shippingMethod);
+  }
+
+  async assertProductInOverviewByKey(productKey: StoreProductKey) {
+    const product = STORE_PRODUCTS[productKey];
+    await expect(this.page.getByText(product.name)).toBeVisible();
+    await expect(this.page.locator('.inventory_item_price', { hasText: product.price })).toBeVisible();
   }
 
   async getSubtotal(): Promise<string> {
@@ -115,7 +158,7 @@ export class CheckoutPage {
   }
 
   async assertCheckoutComplete() {
-    await expect(this.completeHeader).toHaveText('Thank you for your order!');
+    await expect(this.completeHeader).toHaveText(CHECKOUT_EXPECTED.completeHeader);
     await expect(this.completeText).toBeVisible();
   }
 

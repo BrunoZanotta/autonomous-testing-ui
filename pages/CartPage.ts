@@ -1,4 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
+import { APP_URLS } from './LoginPage';
+import { STORE_PRODUCTS, StoreProductKey } from './InventoryPage';
 
 export class CartPage {
   readonly page: Page;
@@ -6,18 +8,17 @@ export class CartPage {
   readonly cartItems: Locator;
   readonly continueShoppingButton: Locator;
   readonly checkoutButton: Locator;
-  readonly removeButtons: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.pageTitle = page.getByText('Your Cart');
     this.cartItems = page.locator('.cart_item');
     this.continueShoppingButton = page.locator('[data-test="continue-shopping"]');
-    this.checkoutButton = page.locator('[data-test=""]');
-    this.removeButtons = page.locator('button[id^="remove-"]');
+    this.checkoutButton = page.locator('[data-test="checkout"]');
   }
 
   async assertOnCartPage() {
+    await expect(this.page).toHaveURL(new RegExp(`${APP_URLS.cart}$`));
     await expect(this.pageTitle).toBeVisible();
   }
 
@@ -29,27 +30,32 @@ export class CartPage {
     await expect(this.cartItems).toHaveCount(0);
   }
 
-  async getCartItemByName(productName: string) {
+  private getCartItemByName(productName: string) {
     return this.page.locator('.cart_item', { hasText: productName });
   }
 
-  async assertProductInCart(productName: string, price: string) {
-    const cartItem = await this.getCartItemByName(productName);
-    await expect(cartItem.locator('.inventory_item_name')).toHaveText(productName);
-    await expect(cartItem.locator('.inventory_item_price')).toHaveText(price);
+  async assertProductInCartByKey(productKey: StoreProductKey) {
+    const product = STORE_PRODUCTS[productKey];
+    const cartItem = this.getCartItemByName(product.name);
+    await expect(cartItem.locator('.inventory_item_name')).toHaveText(product.name);
+    await expect(cartItem.locator('.inventory_item_price')).toHaveText(product.price);
   }
 
-  async assertProductQuantity(index: number, expectedQuantity: string) {
-    await expect(this.cartItems.nth(index).locator('.cart_quantity')).toHaveText(expectedQuantity);
+  async assertProductNotInCartByKey(productKey: StoreProductKey) {
+    const cartItem = this.getCartItemByName(STORE_PRODUCTS[productKey].name);
+    await expect(cartItem).toHaveCount(0);
   }
 
-  async removeProductByName(productName: string) {
-    const cartItem = await this.getCartItemByName(productName);
+  async assertAllItemsQuantity(expectedQuantity: string) {
+    const itemCount = await this.cartItems.count();
+    for (let i = 0; i < itemCount; i++) {
+      await expect(this.cartItems.nth(i).locator('.cart_quantity')).toHaveText(expectedQuantity);
+    }
+  }
+
+  async removeProductByKey(productKey: StoreProductKey) {
+    const cartItem = this.getCartItemByName(STORE_PRODUCTS[productKey].name);
     await cartItem.locator('button[id^="remove-"]').click();
-  }
-
-  async removeProductByIndex(index: number) {
-    await this.removeButtons.nth(index).click();
   }
 
   async continueShopping() {
@@ -58,15 +64,5 @@ export class CartPage {
 
   async proceedToCheckout() {
     await this.checkoutButton.click();
-  }
-
-  async getAllCartItemNames(): Promise<string[]> {
-    const names = await this.cartItems.locator('.inventory_item_name').allTextContents();
-    return names;
-  }
-
-  async getAllCartItemPrices(): Promise<string[]> {
-    const prices = await this.cartItems.locator('.inventory_item_price').allTextContents();
-    return prices;
   }
 }

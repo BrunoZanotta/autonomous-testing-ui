@@ -1,0 +1,98 @@
+# LLM Workflow Contract - autonomous-testing-ui
+
+Last updated: 2026-02-15
+
+This file defines the mandatory workflow for AI agents in this repository.
+
+## Trigger
+
+When the user asks to create a new automated UI test, execute the full delivery workflow below.
+
+## Mandatory Delivery Workflow (End-to-End)
+
+1. Preflight
+- Validate git repository and remote: `git status`, `git remote -v`
+- Validate branch base (default `main`)
+- Validate required tools: `node`, `npm`, `npx`, `git`
+
+2. Branch Creation
+- Create branch using pattern: `<type>/<scope>-<slug>`
+- Examples:
+  - `feat/checkout-invalid-zip`
+  - `fix/inventory-sort-stability`
+  - `chore/test-governance-rules`
+
+3. Test Planning and Generation
+- Use `.github/agents/playwright/qa-planner.agent.md` for scenario design.
+- Use `.github/agents/playwright/qa-generator.agent.md` for implementation.
+- Keep architecture contract:
+  - `fixtures/` setup and injection only
+  - `pages/` selectors, actions, assertions, domain data
+  - `tests/` orchestration/steps only
+
+4. Test Execution
+- Run discovery: `npx playwright test --list --project=chromium`
+- Run relevant test scope first (targeted tests)
+- Run broader regression/smoke scope when applicable
+
+5. Healing (If Needed)
+- If tests fail, use `.github/agents/playwright/qa-healer.agent.md`
+- Re-run until stable or produce explicit blocker report
+
+6. Governance and Security Gate (Mandatory)
+- Execute: `./scripts/ci/governance-gate.sh governance-gate-report.md`
+- Use `.github/agents/playwright/qa-governance-guardian.agent.md` as policy source
+- If report status is FAIL, stop delivery and do not commit
+
+7. Commit
+- Use Conventional Commits:
+  - `feat(scope): summary`
+  - `fix(scope): summary`
+  - `refactor(scope): summary`
+  - `chore(scope): summary`
+- Never commit `.env`, tokens, secrets, private keys
+
+8. Push and PR Creation
+- Use `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
+- Preferred command:
+  - `./scripts/git/create-pr-flow.sh <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]`
+- Required outcome:
+  - branch pushed to origin
+  - PR opened on GitHub (or exact fallback command if `gh` unavailable)
+
+9. Final Response Contract
+- Return:
+  - branch name
+  - commit SHA
+  - PR URL (or fallback command)
+  - checks executed
+  - governance gate result
+  - blocking issues (if any)
+
+## Non-Negotiable Rules
+
+- No hardcoded credentials in tracked source files.
+- `.env` must remain ignored.
+- No fixed sleeps (`waitForTimeout`, manual sleeps, polling hacks).
+- No prohibited waits (`networkidle`).
+- Do not bypass failed governance checks.
+- Do not use destructive git operations unless explicitly requested.
+
+## Agent Registry
+
+- Planner: `.github/agents/playwright/qa-planner.agent.md`
+- Generator: `.github/agents/playwright/qa-generator.agent.md`
+- Healer: `.github/agents/playwright/qa-healer.agent.md`
+- Governance: `.github/agents/playwright/qa-governance-guardian.agent.md`
+- GitOps/PR: `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
+
+## CI Alignment
+
+The CI workflow includes governance blocking in:
+- `.github/workflows/playwright.yml`
+
+Local policy script:
+- `scripts/ci/governance-gate.sh`
+
+Delivery script:
+- `scripts/git/create-pr-flow.sh`

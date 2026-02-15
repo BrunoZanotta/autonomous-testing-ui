@@ -1,4 +1,4 @@
-# 🤖 Playwright with Agents - Planner/Generator/Healer + POM
+# 🤖 Autonomous Testing UI
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-brightgreen)
 ![Playwright](https://img.shields.io/badge/Playwright-1.56-blue)
@@ -12,9 +12,11 @@
 Este projeto demonstra o poder do **Playwright 1.56** com **agentes de IA integrados** combinado com as **melhores práticas de automação de testes**:
 
 ### 🤖 **Agentes de IA do Playwright**
-- **Planner**: Analisa o site e gera um plano de testes em Markdown
-- **Generator**: Transforma o plano em código Playwright pronto para execução
-- **Healer**: Executa os testes e corrige automaticamente falhas de seletor, timeout e visibilidade
+- **QA Strategy Planner**: Analisa o site e gera um plano de testes em Markdown
+- **QA Automation Generator**: Transforma o plano em código Playwright pronto para execução
+- **QA Reliability Healer**: Executa os testes e corrige automaticamente falhas de seletor, timeout e visibilidade
+- **QA Governance Guardian**: Faz o gate final de qualidade, arquitetura e segurança para impedir quebra de regras
+- **GitOps PR Orchestrator**: Cria branch, gera commit, faz push e abre PR no GitHub com guardrails
 
 ### 🏗️ **Arquitetura Profissional**
 - **Page Object Model (POM)**: Código organizado e reutilizável
@@ -29,26 +31,29 @@ Tudo **rodando localmente**, sem custo e sem depender de serviços externos.
 ## 📁 Estrutura do Projeto
 
 ```
-playwright-with-agents/
+autonomous-testing-ui/
 ├── pages/              # Page Objects (POM)
 │   ├── LoginPage.ts
 │   ├── InventoryPage.ts
 │   ├── CartPage.ts
 │   └── CheckoutPage.ts
 ├── fixtures/           # Custom Fixtures
-│   └── authenticatedPage.ts
-├── utils/             # Helpers e Constantes
-│   ├── constants.ts
-│   └── testData.ts
+│   └── app.fixture.ts
 ├── tests/             # Testes organizados por módulo
 │   ├── auth/         # @auth @smoke
 │   ├── inventory/    # @inventory @regression
 │   ├── cart/         # @cart @smoke @regression
 │   └── checkout/     # @checkout @smoke
 ├── .github/
+│   ├── agents/
+│   │   └── playwright/
+│   │       ├── qa-planner.agent.md
+│   │       ├── qa-generator.agent.md
+│   │       ├── qa-healer.agent.md
+│   │       ├── qa-governance-guardian.agent.md
+│   │       └── gitops-pr-orchestrator.agent.md
 │   ├── workflows/
 │   │   └── playwright.yml  # CI/CD em stages
-│   └── chatmodes/          # Agentes do Playwright
 └── playwright.config.ts
 ```
 
@@ -66,8 +71,8 @@ playwright-with-agents/
 ## ⚙️ Instalação
 
 ```bash
-git clone https://github.com/BrunoZanotta/playwright-with-agents-planner-generator-healer.git
-cd playwright-with-agents-planner-generator-healer
+git clone https://github.com/BrunoZanotta/autonomous-testing-ui.git
+cd autonomous-testing-ui
 npm ci
 npx playwright install --with-deps
 ```
@@ -82,18 +87,23 @@ Inicialize os agentes de IA do Playwright:
 npx playwright init-agents --loop=vscode
 ```
 
-Esse comando cria automaticamente:
+Este repositório versiona os agentes em um padrão profissional em:
+
+- `.github/agents/playwright/qa-planner.agent.md`
+- `.github/agents/playwright/qa-generator.agent.md`
+- `.github/agents/playwright/qa-healer.agent.md`
+- `.github/agents/playwright/qa-governance-guardian.agent.md`
+- `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
+
+Se quiser bootstrap automático do Playwright, você ainda pode usar:
 
 - `.vscode/mcp.json`
-- `.github/chatmodes/🎭 planner.chatmode.md`
-- `.github/chatmodes/🎭 generator.chatmode.md`
-- `.github/chatmodes/🎭 healer.chatmode.md`
 
 ---
 
 ## 🎭 Usando os Agentes
 
-### 1️⃣ Planner – Gerar Plano de Testes
+### 1️⃣ QA Strategy Planner – Gerar Plano de Testes
 
 ```bash
 npx playwright agent planner --site=https://www.saucedemo.com --instructions="Plano POM: login, catálogo, carrinho, checkout."
@@ -101,7 +111,7 @@ npx playwright agent planner --site=https://www.saucedemo.com --instructions="Pl
 
 **Output:** `plan.md` com plano detalhado de testes
 
-### 2️⃣ Generator – Criar os Testes
+### 2️⃣ QA Automation Generator – Criar os Testes
 
 ```bash
 npx playwright agent generator --plan=plan.md
@@ -109,13 +119,35 @@ npx playwright agent generator --plan=plan.md
 
 **Output:** Testes Playwright gerados automaticamente
 
-### 3️⃣ Healer – Corrigir Testes com Falha
+### 3️⃣ QA Reliability Healer – Corrigir Testes com Falha
 
 ```bash
 npx playwright agent healer
 ```
 
 **Output:** Testes corrigidos automaticamente (seletores, timeouts, etc.)
+
+### 4️⃣ QA Governance Guardian – Validar Regras no Final
+
+Use este agent como etapa final para validar:
+- exposição de dados sensíveis
+- aderência a padrões de arquitetura
+- prevenção de flakiness e waits proibidos
+
+**Output:** Governance Gate Report com status PASS/FAIL e findings por severidade
+
+### 5️⃣ GitOps PR Orchestrator – Branch, Commit e PR
+
+Use este agent para automatizar entrega:
+- criar branch padronizada
+- gerar commit convencional
+- fazer push para origin
+- abrir PR no GitHub
+
+Script de apoio:
+```bash
+./scripts/git/create-pr-flow.sh <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]
+```
 
 ---
 
@@ -256,14 +288,15 @@ export class LoginPage {
 ### Teste com Fixtures e Tags
 
 ```typescript
-import { test, expect } from '../../fixtures/authenticatedPage';
+import { test } from '../../fixtures/app.fixture';
 
 test.describe('Authentication Tests', { tag: '@auth' }, () => {
   test('Successful Login', { tag: '@smoke' }, async ({ loginPage, inventoryPage }) => {
     await loginPage.goto();
-    await loginPage.login('standard_user', 'secret_sauce');
+    await loginPage.loginAsStandardUser();
     await loginPage.assertLoginSuccess();
     await inventoryPage.assertOnInventoryPage();
+    await inventoryPage.assertShoppingCartLinkVisible();
   });
 });
 ```
@@ -312,8 +345,9 @@ npx playwright show-report
 - Redução de 70% de código duplicado
 
 ### ✅ Centralização de Dados
-- **constants.ts**: URLs, produtos, timeouts
-- **testData.ts**: Usuários, dados de checkout, mensagens de erro
+- **LoginPage.ts**: URLs, usuários de teste e mensagens de autenticação
+- **InventoryPage.ts**: catálogo de produtos e regras de ordenação
+- **CheckoutPage.ts**: perfis de checkout e expectativas de resumo
 
 ### ✅ CI/CD Inteligente
 - Execução em stages sequenciais

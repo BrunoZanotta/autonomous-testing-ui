@@ -1,4 +1,10 @@
+import 'dotenv/config';
 import { defineConfig, devices } from '@playwright/test';
+
+const baseURL = process.env.BASE_URL;
+if (!baseURL) {
+  throw new Error('Missing required env var: BASE_URL');
+}
 
 export default defineConfig({
   testDir: 'tests',
@@ -13,10 +19,10 @@ export default defineConfig({
   reporter: [
     ['html', { open: 'never' }],
     ['junit', { outputFile: 'junit.xml' }],
-    ['list']
+    ['list'],
   ],
   use: {
-    baseURL: 'https://www.saucedemo.com',
+    baseURL,
     testIdAttribute: 'data-test',
     trace: 'on-first-retry',
     video: 'retain-on-failure',

@@ -1,25 +1,17 @@
-import { test, expect } from '../../fixtures/authenticatedPage';
+import { test } from '../../fixtures/app.fixture';
 
 test.describe('Product Inventory Tests', { tag: '@inventory' }, () => {
-  test('Product Sorting', { tag: '@regression' }, async ({ authenticatedPage, inventoryPage }) => {
-    // Verify initial sort (Name A to Z)
-    await expect(inventoryPage.sortDropdown).toHaveValue('az');
-    let names = await inventoryPage.getProductNames();
-    expect(names).toEqual([...names].sort());
+  test('Product Sorting', { tag: '@regression' }, async ({ authenticatedPage: _authenticatedPage, inventoryPage }) => {
+    await inventoryPage.assertOnInventoryPage();
+    await inventoryPage.assertDefaultSortIsNameAscending();
 
-    // Test Name (Z to A) sorting
-    await inventoryPage.selectSortOption('za');
-    names = await inventoryPage.getProductNames();
-    expect(names).toEqual([...names].sort().reverse());
+    await inventoryPage.sortByNameDescending();
+    await inventoryPage.assertProductNamesSortedDescending();
 
-    // Test Price (low to high) sorting
-    await inventoryPage.selectSortOption('lohi');
-    let prices = (await inventoryPage.getProductPrices()).map(price => parseFloat(price.replace('$', '')));
-    expect(prices).toEqual([...prices].sort((a, b) => a - b));
+    await inventoryPage.sortByPriceAscending();
+    await inventoryPage.assertProductPricesSortedAscending();
 
-    // Test Price (high to low) sorting
-    await inventoryPage.selectSortOption('hilo');
-    prices = (await inventoryPage.getProductPrices()).map(price => parseFloat(price.replace('$', '')));
-    expect(prices).toEqual([...prices].sort((a, b) => b - a));
+    await inventoryPage.sortByPriceDescending();
+    await inventoryPage.assertProductPricesSortedDescending();
   });
 });

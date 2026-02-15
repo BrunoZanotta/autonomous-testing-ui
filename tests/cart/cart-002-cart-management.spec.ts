@@ -1,43 +1,32 @@
-import { test, expect } from '../../fixtures/authenticatedPage';
-import { PRODUCTS } from '../../utils/constants';
-import { URLS } from '../../utils/constants';
+import { test } from '../../fixtures/app.fixture';
 
 test.describe('Shopping Cart Tests', { tag: '@cart' }, () => {
-  test('Cart Management', { tag: '@regression' }, async ({ authenticatedPage, inventoryPage, cartPage }) => {
-    // Add multiple products to cart
-    await inventoryPage.addProductToCart(PRODUCTS.backpack.dataTest);
-    await inventoryPage.addProductToCart(PRODUCTS.bikeLight.dataTest);
-    await inventoryPage.assertCartBadgeCount('2');
+  test('Cart Management', { tag: '@regression' }, async ({ authenticatedPage: _authenticatedPage, inventoryPage, cartPage }) => {
+    await inventoryPage.addProductToCartByKey('backpack');
+    await inventoryPage.addProductToCartByKey('bikeLight');
+    await inventoryPage.assertCartBadgeCount(2);
 
-    // Navigate to cart page
     await inventoryPage.goToCart();
-    await expect(authenticatedPage).toHaveURL(new RegExp(`${URLS.cart}$`));
-
-    // Verify initial cart state
     await cartPage.assertCartItemCount(2);
-    await cartPage.assertProductInCart(PRODUCTS.backpack.name, PRODUCTS.backpack.price);
-    await cartPage.assertProductInCart(PRODUCTS.bikeLight.name, PRODUCTS.bikeLight.price);
+    await cartPage.assertOnCartPage();
+    await cartPage.assertProductInCartByKey('backpack');
+    await cartPage.assertProductInCartByKey('bikeLight');
 
-    // Remove one product
-    await cartPage.removeProductByName(PRODUCTS.backpack.name);
+    await cartPage.removeProductByKey('backpack');
 
-    // Verify cart updates
     await cartPage.assertCartItemCount(1);
-    await expect(authenticatedPage.getByText(PRODUCTS.backpack.name).first()).not.toBeVisible();
-    await inventoryPage.assertCartBadgeCount('1');
+    await cartPage.assertProductNotInCartByKey('backpack');
+    await inventoryPage.assertCartBadgeCount(1);
 
-    // Continue shopping
     await cartPage.continueShopping();
-    await expect(authenticatedPage).toHaveURL(new RegExp(`${URLS.inventory}$`));
+    await inventoryPage.assertOnInventoryPage();
 
-    // Add another product
-    await inventoryPage.addProductToCart(PRODUCTS.boltTShirt.dataTest);
+    await inventoryPage.addProductToCartByKey('boltTShirt');
 
-    // Verify cart maintains state
-    await inventoryPage.assertCartBadgeCount('2');
+    await inventoryPage.assertCartBadgeCount(2);
     await inventoryPage.goToCart();
     await cartPage.assertCartItemCount(2);
-    await cartPage.assertProductInCart(PRODUCTS.bikeLight.name, PRODUCTS.bikeLight.price);
-    await cartPage.assertProductInCart(PRODUCTS.boltTShirt.name, PRODUCTS.boltTShirt.price);
+    await cartPage.assertProductInCartByKey('bikeLight');
+    await cartPage.assertProductInCartByKey('boltTShirt');
   });
 });
