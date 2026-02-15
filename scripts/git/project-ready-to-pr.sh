@@ -58,6 +58,8 @@ CARD_TITLE="$(echo "$READY_JSON" | jq -r '.title')"
 CARD_BODY="$(echo "$READY_JSON" | jq -r '.body // empty')"
 ISSUE_NUMBER="$(echo "$READY_JSON" | jq -r '.issue_number // empty')"
 CONTENT_TYPE="$(echo "$READY_JSON" | jq -r '.content_type // empty')"
+WORK_TYPE="$(echo "$READY_JSON" | jq -r '.work_type // "newTest"')"
+PRIORITY_LABEL="$(echo "$READY_JSON" | jq -r '.priority_label // "NONE"')"
 
 slugify() {
   echo "$1" \
@@ -67,9 +69,25 @@ slugify() {
 }
 
 TITLE_SLUG="$(slugify "$CARD_TITLE")"
-BRANCH_NAME="feat/tests-${TITLE_SLUG:-project-card}"
-COMMIT_MESSAGE="test(e2e): add coverage for ${CARD_TITLE}"
-PR_TITLE="test: ${CARD_TITLE}"
+
+case "$WORK_TYPE" in
+  bugfix)
+    BRANCH_PREFIX="bugfix"
+    COMMIT_MESSAGE="fix(e2e): resolve ${CARD_TITLE}"
+    PR_TITLE="fix: ${CARD_TITLE}"
+    ;;
+  newTest)
+    BRANCH_PREFIX="newTest"
+    COMMIT_MESSAGE="test(e2e): add coverage for ${CARD_TITLE}"
+    PR_TITLE="test: ${CARD_TITLE}"
+    ;;
+  *)
+    echo "error: unsupported work_type '$WORK_TYPE'. Expected bugfix or newTest." >&2
+    exit 1
+    ;;
+esac
+
+BRANCH_NAME="${BRANCH_PREFIX}/${TITLE_SLUG:-project-card}"
 
 prepare_branch() {
   local base_branch="$1"
@@ -107,6 +125,8 @@ export PROJECT_CARD_TITLE="$CARD_TITLE"
 export PROJECT_CARD_BODY="$CARD_BODY"
 export PROJECT_CARD_CONTENT_TYPE="$CONTENT_TYPE"
 export PROJECT_CARD_ISSUE_NUMBER="$ISSUE_NUMBER"
+export PROJECT_CARD_WORK_TYPE="$WORK_TYPE"
+export PROJECT_CARD_PRIORITY_LABEL="$PRIORITY_LABEL"
 
 # 3) Execute implementation command (if provided)
 if [[ -n "${WORK_CMD:-}" ]]; then
@@ -143,6 +163,8 @@ jq -n \
   --arg item_id "$ITEM_ID" \
   --arg title "$CARD_TITLE" \
   --arg branch "$BRANCH_NAME" \
+  --arg work_type "$WORK_TYPE" \
+  --arg priority_label "$PRIORITY_LABEL" \
   --arg commit_message "$COMMIT_MESSAGE" \
   --arg pr_url "$PR_URL" \
   --arg moved_to_in_progress "$IN_PROGRESS_STATUS" \
@@ -152,6 +174,8 @@ jq -n \
     item_id: $item_id,
     title: $title,
     branch: $branch,
+    work_type: $work_type,
+    priority_label: $priority_label,
     commit_message: $commit_message,
     pr_url: $pr_url,
     moved_to_in_progress: $moved_to_in_progress,
