@@ -182,6 +182,17 @@ export class InventoryPage {
     await expect(productButton).toHaveText(INVENTORY_UI.addToCartLabel);
   }
 
+  async assertProductCardTitleDescriptionAndImageFor(productKey: StoreProductKey) {
+    const productData = STORE_PRODUCTS[productKey];
+    const product = this.getProductByName(productData.name);
+    const productImage = product.locator('img');
+
+    await expect(product.locator('.inventory_item_name')).toHaveText(productData.name);
+    await expect(product.locator('.inventory_item_desc')).toContainText(productData.descriptionSnippet);
+    await expect(productImage).toBeVisible();
+    await expect(productImage).toHaveAttribute('alt', productData.name);
+  }
+
   async assertAllProductsHaveRequiredElements() {
     const count = await this.inventoryItems.count();
     for (let i = 0; i < count; i++) {
