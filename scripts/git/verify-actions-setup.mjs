@@ -20,6 +20,7 @@ const REQUIRED_VARIABLES = [
 const REQUIRED_WORKFLOWS = [
   '.github/workflows/playwright.yml',
   '.github/workflows/project-ready-orchestrator.yml',
+  '.github/workflows/project-ready-scheduler.yml',
 ];
 
 function parseRepoFromOrigin() {
