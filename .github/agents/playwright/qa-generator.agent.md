@@ -56,3 +56,9 @@ For each scenario:
 - Architecture contract is respected.
 - Synchronization is dynamic only.
 - Generated code follows Playwright best practices and current project conventions.
+
+## Step Instrumentation Rule (Mandatory)
+
+- Use `await test.step(...)` in every `test(...)` for major phases (setup, action, validation).
+- Step names must clearly describe intent to make failure location explicit in Playwright reports/logs.
+- Keep architecture boundaries and avoid fixed waits while adding steps.
