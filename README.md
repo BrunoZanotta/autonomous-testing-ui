@@ -193,6 +193,7 @@ Agendamento automatico:
 - `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
 - Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
 - Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
+- Se o card for genérico (sem pista de inventory/cart), o gerador aplica fallback para um cenário padrão de carrinho com dois produtos.
 
 Scripts de apoio:
 ```bash

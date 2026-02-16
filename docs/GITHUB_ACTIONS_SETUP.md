@@ -77,6 +77,7 @@ gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-te
 - Card precisa estar em `Ready`
 - Label de tipo recomendada: `bug` ou `new test`
 - Sem label de tipo, o fluxo infere o tipo pelo titulo/corpo e usa fallback `newTest`
+- Se o texto do card for generico (sem pista de inventory/cart), o gerador cria um teste padrao de carrinho com dois produtos
 - Priorizacao automatica: `bugfix` primeiro, depois `P0`, `P1`, `P2`
 
 Se nao houver card elegivel, o workflow encerra sem erro.
