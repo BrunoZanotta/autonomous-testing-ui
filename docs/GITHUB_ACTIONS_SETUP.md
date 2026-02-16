@@ -3,11 +3,12 @@
 Este projeto ja possui automacao completa em GitHub Actions para:
 - CI de testes Playwright por estagios
 - Orquestracao de cards `Ready -> In progress -> In review`
-- Agendamento automatico de processamento de cards (cron no orchestrator)
+- Agendamento automatico de processamento de cards (cron no scheduler)
 - Execucao sem necessidade de interagir no terminal
 
 ## Workflows existentes
 - `.github/workflows/playwright.yml`
+- `.github/workflows/project-ready-scheduler.yml`
 - `.github/workflows/project-ready-orchestrator.yml`
 
 ## 1) Pre-requisitos
@@ -58,6 +59,11 @@ node ./scripts/git/verify-actions-setup.mjs --json
 ```
 
 ## 5) Testar execucao manual (opcional)
+Rodar scheduler:
+```bash
+gh workflow run project-ready-scheduler.yml --repo BrunoZanotta/autonomous-testing-ui
+```
+
 Rodar orquestrador:
 ```bash
 gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-testing-ui

@@ -58,7 +58,8 @@ autonomous-testing-ui/
 │   │       └── github-project-ready-pr-orchestrator.agent.md
 │   ├── workflows/
 │   │   ├── playwright.yml                  # CI/CD em stages
-│   │   └── project-ready-orchestrator.yml # Cron: Ready -> In progress -> In review
+│   │   ├── project-ready-scheduler.yml    # Cron: dispara orquestrador a cada 5 min
+│   │   └── project-ready-orchestrator.yml # Executor: Ready -> In progress -> In review
 ├── scripts/
 │   ├── ci/
 │   │   └── governance-gate.mjs
@@ -188,7 +189,8 @@ Use este agent para operacao automatizada via GitHub Project:
 - mover card para `In Review` apos criacao do PR
 
 Agendamento automatico:
-- `.github/workflows/project-ready-orchestrator.yml` roda por cron a cada 5 minutos (alem de permitir `workflow_dispatch`).
+- `.github/workflows/project-ready-scheduler.yml` roda por cron a cada 5 minutos e dispara o orquestrador.
+- `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
 - Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
 - Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
 

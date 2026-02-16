@@ -1,0 +1,32 @@
+name: Project Ready Scheduler
+
+on:
+  schedule:
+    - cron: '3-59/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: project-ready-scheduler
+  cancel-in-progress: true
+
+jobs:
+  tick:
+    name: Dispatch Orchestrator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Project Ready Orchestrator
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowId = 'project-ready-orchestrator.yml';
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflowId,
+              ref: 'main',
+            });
+            core.info(`Dispatched ${workflowId} on main at ${new Date().toISOString()}`);
