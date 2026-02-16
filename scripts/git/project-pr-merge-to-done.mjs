@@ -113,6 +113,46 @@ function parseIssueNumbersFromText(text) {
   return values;
 }
 
+function readIssueComments(issueNumber) {
+  const response = run('gh', ['api', `repos/${repoFullName}/issues/${issueNumber}/comments?per_page=100`], {
+    allowFailure: true,
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const parsed = safeJsonParse(response.stdout, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function findIssueNumbersByPrUrlFallback(projectItems, prUrl) {
+  if (!prUrl) {
+    return [];
+  }
+
+  const inReviewIssues = projectItems
+    .filter(
+      (item) =>
+        item?.content?.__typename === 'Issue' &&
+        String(item?.content?.repository?.nameWithOwner ?? '') === repoFullName &&
+        normalizeStatus(getItemStatus(item)) === 'inreview',
+    )
+    .map((item) => Number.parseInt(String(item?.content?.number ?? ''), 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  const matches = [];
+  for (const issueNumber of inReviewIssues) {
+    const comments = readIssueComments(issueNumber);
+    const hasReference = comments.some((comment) => String(comment?.body ?? '').includes(prUrl));
+    if (hasReference) {
+      matches.push(issueNumber);
+    }
+  }
+
+  return matches;
+}
+
 function getItemStatus(item) {
   const values = Array.isArray(item?.fieldValues?.nodes) ? item.fieldValues.nodes : [];
   const statusValue = values.find((node) => normalizeStatus(node?.field?.name) === 'status');
@@ -141,18 +181,6 @@ try {
     issueNumbers.add(value);
   }
 
-  const linkedIssues = Array.from(issueNumbers).sort((a, b) => a - b);
-  if (linkedIssues.length === 0) {
-    console.log(
-      JSON.stringify({
-        status: 'NO_LINKED_ISSUES',
-        pull_request: prNumber,
-        repo: repoFullName,
-      }),
-    );
-    process.exit(0);
-  }
-
   const projectResponse = ghGraphql(PROJECT_READY_QUERY, {
     owner,
     number: projectNumber,
@@ -167,6 +195,25 @@ try {
   }
 
   const items = Array.isArray(project?.items?.nodes) ? project.items.nodes : [];
+
+  if (issueNumbers.size === 0) {
+    for (const value of findIssueNumbersByPrUrlFallback(items, String(pr?.html_url ?? ''))) {
+      issueNumbers.add(value);
+    }
+  }
+
+  const linkedIssues = Array.from(issueNumbers).sort((a, b) => a - b);
+  if (linkedIssues.length === 0) {
+    console.log(
+      JSON.stringify({
+        status: 'NO_LINKED_ISSUES',
+        pull_request: prNumber,
+        repo: repoFullName,
+      }),
+    );
+    process.exit(0);
+  }
+
   const moved = [];
   const alreadyDone = [];
   const notFound = [];
