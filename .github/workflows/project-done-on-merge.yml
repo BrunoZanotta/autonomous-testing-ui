@@ -1,0 +1,65 @@
+name: Project Done On PR Merge
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: project-done-on-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  move-linked-issue-cards-to-done:
+    name: Merge -> Done
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+      PROJECT_OWNER: ${{ github.repository_owner }}
+      PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER || '3' }}
+      PROJECT_REPO_FULL_NAME: ${{ github.repository }}
+      DONE_STATUS: Done
+
+    steps:
+      - name: Print trigger context
+        run: |
+          echo "event=${GITHUB_EVENT_NAME}"
+          echo "action=${{ github.event.action }}"
+          echo "pull_request=${{ github.event.pull_request.number }}"
+          echo "merged=${{ github.event.pull_request.merged }}"
+          date -u '+%Y-%m-%d %H:%M:%S UTC'
+
+      - name: Validate automation token
+        id: token
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GH_PROJECT_TOKEN is not configured. Skipping Done sync."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout code
+        if: steps.token.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.token.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Move linked cards to Done
+        if: steps.token.outputs.enabled == 'true'
+        run: |
+          node ./scripts/git/project-pr-merge-to-done.mjs \
+            "${PROJECT_OWNER}" \
+            "${PROJECT_NUMBER}" \
+            "${PROJECT_REPO_FULL_NAME}" \
+            "${{ github.event.pull_request.number }}" \
+            "${DONE_STATUS}"

@@ -3,6 +3,7 @@
 Este projeto ja possui automacao completa em GitHub Actions para:
 - CI de testes Playwright por estagios
 - Orquestracao de cards `Ready -> In progress -> In review`
+- Sincronizacao automatica `PR merge -> Done` no Project
 - Agendamento automatico com loop por `workflow_run` + cron como backup
 - Execucao sem necessidade de interagir no terminal
 
@@ -10,6 +11,7 @@ Este projeto ja possui automacao completa em GitHub Actions para:
 - `.github/workflows/playwright.yml`
 - `.github/workflows/project-ready-scheduler.yml`
 - `.github/workflows/project-ready-orchestrator.yml`
+- `.github/workflows/project-done-on-merge.yml`
 
 Modelo de execucao do scheduler:
 - `workflow_run` do orquestrador: mantem o loop automatico (com cooldown de 5 min)
@@ -27,6 +29,7 @@ Modelo de execucao do scheduler:
 - `APP_USER_INVALID_PASSWORD`
 
 `GH_PROJECT_TOKEN` tambem e usado pelo scheduler para disparar o orquestrador com permissao de encadear execucoes automaticas.
+O mesmo token tambem e usado para mover card para `Done` no merge da PR.
 
 Exemplo:
 ```bash
@@ -86,5 +89,6 @@ gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-te
 - Sem label de tipo, o fluxo infere o tipo pelo titulo/corpo e usa fallback `newTest`
 - Se o texto do card for generico (sem pista de inventory/cart), o gerador cria um teste padrao de carrinho com dois produtos
 - Priorizacao automatica: `bugfix` primeiro, depois `P0`, `P1`, `P2`
+- No merge da PR, o card vai para `Done` automaticamente quando a PR referencia a issue (`Refs #<numero>` ou `Closes #<numero>`)
 
 Se nao houver card elegivel, o workflow encerra sem erro.
