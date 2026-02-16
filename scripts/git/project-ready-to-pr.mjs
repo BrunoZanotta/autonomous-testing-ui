@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 import { run } from '../lib/cli.mjs';
 
@@ -66,6 +69,7 @@ function parseJsonOutput(raw) {
 let selectedItemId = '';
 let selectedIssueNumber = '';
 let movedToInProgress = false;
+let selectedBranchName = '';
 
 try {
   if (!run('git', ['rev-parse', '--is-inside-work-tree'], { allowFailure: true }).ok) {
@@ -124,6 +128,7 @@ try {
 
   const titleSlug = slugify(cardTitle);
   const branchName = `${branchPrefix}/${titleSlug || 'project-card'}`;
+  selectedBranchName = branchName;
 
   prepareBranch(baseBranch, branchName);
 
@@ -156,21 +161,61 @@ try {
   }
 
   process.stdout.write(`Running WORK_CMD: ${effectiveWorkCmd}\n`);
-  run('bash', ['-lc', effectiveWorkCmd], {
-    stdio: 'inherit',
+  const workRun = run('bash', ['-lc', effectiveWorkCmd], {
+    allowFailure: true,
     env: workflowEnv,
+    trimOutput: false,
   });
+  if (workRun.stdout) {
+    process.stdout.write(workRun.stdout);
+  }
+  if (workRun.stderr) {
+    process.stderr.write(workRun.stderr);
+  }
+  if (!workRun.ok) {
+    const details = workRun.stderr || workRun.stdout || 'work command failed';
+    throw new Error(`error: work command failed.\n${details}`);
+  }
+
+  const generatedMatch = `${workRun.stdout}\n${workRun.stderr}`.match(/Generated:\s*(.+\.spec\.ts)/i);
+  const generatedTestFile = generatedMatch ? String(generatedMatch[1]).trim() : '';
 
   run('node', ['scripts/ci/governance-gate.mjs', 'governance-gate-report.md'], { stdio: 'inherit' });
 
+  let prBodyFilePath = '';
+  const prBodyLines = [
+    '## Summary',
+    `- Automated Ready flow for issue: ${cardTitle}`,
+    `- Branch: \`${branchName}\``,
+    generatedTestFile ? `- Test generated: \`${generatedTestFile}\`` : '- Test generated: n/a',
+    '',
+    '## Validation',
+    '- Governance gate executed',
+    '- Playwright test discovery attempted',
+  ];
+
+  if (contentType === 'Issue' && issueNumber) {
+    prBodyLines.push('', `Refs #${issueNumber}`);
+  }
+
+  const prBodyTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-ready-pr-'));
+  prBodyFilePath = path.join(prBodyTempDir, 'pr-body.md');
+  fs.writeFileSync(prBodyFilePath, `${prBodyLines.join('\n')}\n`, 'utf8');
+
   const flow = run(
     'node',
-    ['scripts/git/create-pr-flow.mjs', branchName, commitMessage, baseBranch, prTitle],
+    ['scripts/git/create-pr-flow.mjs', branchName, commitMessage, baseBranch, prTitle, prBodyFilePath],
     {
       allowFailure: true,
       env: { ...workflowEnv, SKIP_BRANCH_PREP: '1' },
     },
   );
+
+  try {
+    fs.rmSync(prBodyTempDir, { recursive: true, force: true });
+  } catch {
+    // ignore cleanup failure
+  }
 
   if (flow.stdout) {
     process.stdout.write(`${flow.stdout}\n`);
@@ -196,9 +241,13 @@ try {
   });
 
   if (contentType === 'Issue' && issueNumber) {
-    run('gh', ['issue', 'comment', issueNumber, '--repo', repoFullName, '--body', `Automated PR created: ${prUrl}`], {
-      stdio: 'inherit',
-    });
+    const issueCommentLines = [
+      'Automated flow completed.',
+      `- Branch: ${branchName}`,
+      generatedTestFile ? `- Test file: ${generatedTestFile}` : '- Test file: n/a',
+      `- PR: ${prUrl}`,
+    ];
+    run('gh', ['issue', 'comment', issueNumber, '--repo', repoFullName, '--body', issueCommentLines.join('\n')], { stdio: 'inherit' });
   }
 
   console.log(
@@ -210,6 +259,7 @@ try {
       work_type: workType,
       priority_label: priorityLabel,
       commit_message: commitMessage,
+      generated_test_file: generatedTestFile,
       pr_url: prUrl,
       moved_to_in_progress: inProgressStatus,
       moved_to_in_review: inReviewStatus,
@@ -235,7 +285,11 @@ try {
             '--repo',
             repoFullName,
             '--body',
-            `Automated flow failed and card was moved back to '${readyStatus}'. Error: ${message}`,
+            [
+              'Automated flow failed and card was moved back to Ready.',
+              selectedBranchName ? `- Branch: ${selectedBranchName}` : '- Branch: n/a',
+              `- Error: ${message}`,
+            ].join('\n'),
           ],
           { stdio: 'inherit', allowFailure: true },
         );
