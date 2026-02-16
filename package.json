@@ -16,6 +16,13 @@
     "test:inventory": "playwright test --grep @inventory",
     "test:cart": "playwright test --grep @cart",
     "test:checkout": "playwright test --grep @checkout",
-    "pw:install": "playwright install --with-deps"
+    "pw:install": "playwright install --with-deps",
+    "governance:gate": "node ./scripts/ci/governance-gate.mjs governance-gate-report.md",
+    "project:ready:item": "node ./scripts/git/project-ready-item.mjs",
+    "project:ready:move": "node ./scripts/git/project-move-item.mjs",
+    "project:ready:to-pr": "node ./scripts/git/project-ready-to-pr.mjs",
+    "actions:verify": "node ./scripts/git/verify-actions-setup.mjs",
+    "project:create-pr-flow": "node ./scripts/git/create-pr-flow.mjs",
+    "project:ready:work": "node ./scripts/git/project-ready-work.mjs"
   }
 }

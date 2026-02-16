@@ -52,7 +52,7 @@ Execute a safe and reproducible delivery flow:
 - Create branch if absent; otherwise switch to existing branch.
 
 3. Quality gates before commit
-- Run governance gate (`./scripts/ci/governance-gate.sh`).
+- Run governance gate (`node ./scripts/ci/governance-gate.mjs`).
 - Run test discovery (`npx playwright test --list --project=chromium`) when possible.
 
 4. Commit

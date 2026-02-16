@@ -57,7 +57,16 @@ autonomous-testing-ui/
 │   │       ├── gitops-pr-orchestrator.agent.md
 │   │       └── github-project-ready-pr-orchestrator.agent.md
 │   ├── workflows/
-│   │   └── playwright.yml  # CI/CD em stages
+│   │   ├── playwright.yml                  # CI/CD em stages
+│   │   └── project-ready-orchestrator.yml # Cron: Ready -> In progress -> In review
+├── scripts/
+│   ├── ci/
+│   │   └── governance-gate.mjs
+│   └── git/
+│       ├── project-ready-item.mjs
+│       ├── project-ready-to-pr.mjs
+│       ├── project-move-item.mjs
+│       └── project-ready-work.mjs
 └── playwright.config.ts
 ```
 
@@ -101,9 +110,11 @@ Este repositório versiona os agentes em um padrão profissional em:
 - `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
 - `.github/agents/playwright/github-project-ready-pr-orchestrator.agent.md`
 
-Se quiser bootstrap automático do Playwright, você ainda pode usar:
+Se quiser bootstrap automático de MCP para Playwright + GitHub, você ainda pode usar:
 
 - `.vscode/mcp.json`
+- Export necessário para GitHub MCP: `GITHUB_PAT_TOKEN`
+- Política de versionamento: somente `mcp.json` deve ser versionado em `.vscode`
 
 ---
 
@@ -152,7 +163,7 @@ Use este agent para automatizar entrega:
 
 Script de apoio:
 ```bash
-./scripts/git/create-pr-flow.sh <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]
+node ./scripts/git/create-pr-flow.mjs <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]
 ```
 
 ### 6️⃣ QA Test Refactorer – Refatoracao Contínua
@@ -176,11 +187,16 @@ Use este agent para operacao automatizada via GitHub Project:
 - criar commit e abrir PR
 - mover card para `In Review` apos criacao do PR
 
+Agendamento automatico:
+- `.github/workflows/project-ready-orchestrator.yml` roda por cron a cada 5 minutos (alem de permitir `workflow_dispatch`).
+- Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
+- Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
+
 Scripts de apoio:
 ```bash
-./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready
-./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
-./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In Review"
+node ./scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready
+node ./scripts/git/project-ready-to-pr.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
+node ./scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In Review"
 ```
 
 ---
@@ -256,6 +272,7 @@ Stage 5: 🔧 Auto-Heal Snapshots (cria PR automaticamente)
 ✅ **Organização:** Testes agrupados logicamente por tags
 
 📖 **Documentação completa:** [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
+📖 **Setup de automação GitHub:** [docs/GITHUB_ACTIONS_SETUP.md](./docs/GITHUB_ACTIONS_SETUP.md)
 
 ---
 
