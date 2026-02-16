@@ -3,13 +3,18 @@
 Este projeto ja possui automacao completa em GitHub Actions para:
 - CI de testes Playwright por estagios
 - Orquestracao de cards `Ready -> In progress -> In review`
-- Agendamento automatico de processamento de cards (cron no scheduler)
+- Agendamento automatico com loop por `workflow_run` + cron como backup
 - Execucao sem necessidade de interagir no terminal
 
 ## Workflows existentes
 - `.github/workflows/playwright.yml`
 - `.github/workflows/project-ready-scheduler.yml`
 - `.github/workflows/project-ready-orchestrator.yml`
+
+Modelo de execucao do scheduler:
+- `workflow_run` do orquestrador: mantem o loop automatico (com cooldown de 5 min)
+- `schedule`: backup de resiliencia
+- `push` em `main`: bootstrap automatico da esteira apos merge
 
 ## 1) Pre-requisitos
 - `gh` autenticado com acesso ao repositorio

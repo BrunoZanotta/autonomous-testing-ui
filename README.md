@@ -189,7 +189,8 @@ Use este agent para operacao automatizada via GitHub Project:
 - mover card para `In Review` apos criacao do PR
 
 Agendamento automatico:
-- `.github/workflows/project-ready-scheduler.yml` roda por cron a cada 5 minutos e dispara o orquestrador.
+- `.github/workflows/project-ready-scheduler.yml` roda em loop por `workflow_run` do orquestrador (cooldown de 5 min), com `cron` como backup.
+- `push` em `main` tambem pode bootstrapar o scheduler automaticamente.
 - `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
 - Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
 - Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
