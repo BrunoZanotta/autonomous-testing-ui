@@ -39,6 +39,7 @@ jobs:
       - name: Dispatch Project Ready Orchestrator
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PROJECT_TOKEN }}
           script: |
             const workflowId = 'project-ready-orchestrator.yml';
             await github.rest.actions.createWorkflowDispatch({

@@ -26,6 +26,8 @@ Modelo de execucao do scheduler:
 - `APP_USER_LOCKED_PASSWORD`
 - `APP_USER_INVALID_PASSWORD`
 
+`GH_PROJECT_TOKEN` tambem e usado pelo scheduler para disparar o orquestrador com permissao de encadear execucoes automaticas.
+
 Exemplo:
 ```bash
 gh secret set GH_PROJECT_TOKEN --repo BrunoZanotta/autonomous-testing-ui
