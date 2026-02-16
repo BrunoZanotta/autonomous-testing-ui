@@ -237,18 +237,29 @@ function listSpecFiles(dirPath) {
 
 function parseActions(text) {
   const source = String(text ?? '').toLowerCase();
-  const noCreate = /(nao|não|do not|don't)\s+(criar|create|adicionar|add|gerar|generate)\s+(novo\s+)?teste?/.test(source);
+  const sourceNoPaths = source.replace(/tests\/[a-z0-9_./-]+\.spec\.ts/g, ' ');
+  const noCreate = /(nao|não|do not|don't)\s+(criar|create|adicionar|add|gerar|generate)\s+(novo\s+)?teste?/.test(sourceNoPaths);
   const explicitCreateCommand = /\b(crie|criar|adicione|adicionar|gere|gerar|implemente|create|add|generate)\b[^.\n]{0,40}\b(test|teste|tests|testes)\b/.test(
-    source,
+    sourceNoPaths,
   );
-  const wantsRefactor = /(refator|refactor|renomear|rename|padroniz|normaliz|ingles|english)/.test(source);
-  const wantsDelete = /(excluir|exclua|remove|remover|delete|apagar)/.test(source);
+  const wantsRefactor = /(refator|refactor|renomear|rename|padroniz|normaliz|ingles|english)/.test(sourceNoPaths);
+  const wantsDelete = /(excluir|exclua|remove|remover|delete|apagar)/.test(sourceNoPaths);
   const wantsCreateRaw = explicitCreateCommand;
+  let wantsNameRefactor = /(renomear|rename|nome(?:s)?\s+de\s+teste|test\s+name(?:s)?|portugues|portuguese)/.test(sourceNoPaths);
+  const wantsStepRefactor = /(test\.step|step\s+rule|regra\s+de\s+step|steps?\b|etapa(?:s)?)/.test(sourceNoPaths);
+  const wantsAgentRule = /(agente|agent|qa-generator|qa-test-refactorer|generator\.agent|refactorer\.agent)/.test(sourceNoPaths);
+
+  if (wantsRefactor && !wantsNameRefactor && !wantsStepRefactor && !wantsAgentRule) {
+    wantsNameRefactor = true;
+  }
 
   return {
     create: wantsCreateRaw && !noCreate,
     refactor: wantsRefactor,
     delete: wantsDelete,
+    refactor_names: wantsNameRefactor,
+    refactor_steps: wantsStepRefactor,
+    update_agent_rule: wantsAgentRule,
   };
 }
 
@@ -427,6 +438,296 @@ function refactorFilesToEnglish(explicitPaths, summary, excludedPaths = new Set(
   }
 }
 
+function splitCamelCase(value) {
+  return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase();
+}
+
+function toTitleCase(value) {
+  return String(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token[0].toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
+function inferStepTitle(blockLines, index) {
+  const firstAction = blockLines.find((line) => line.trim() && !line.trim().startsWith('//')) ?? '';
+  if (!firstAction) {
+    return `Step ${index}`;
+  }
+
+  const awaitMethod = firstAction.match(/await\s+[A-Za-z0-9_$.]+\.(\w+)\s*\(/);
+  if (awaitMethod) {
+    const phrase = toTitleCase(splitCamelCase(awaitMethod[1]));
+    return `Step ${index}: ${phrase}`;
+  }
+
+  if (/expect\s*\(/.test(firstAction)) {
+    return `Step ${index}: Validate expectation`;
+  }
+
+  return `Step ${index}`;
+}
+
+function findMatchingBrace(text, openingIndex) {
+  let depth = 0;
+  let inSingle = false;
+  let inDouble = false;
+  let inTemplate = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let escaped = false;
+
+  for (let i = openingIndex; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1] ?? '';
+
+    if (inLineComment) {
+      if (ch === '\n') {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (ch === '*' && next === '/') {
+        inBlockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+
+    if (inSingle) {
+      if (!escaped && ch === "'") {
+        inSingle = false;
+      }
+      escaped = ch === '\\' && !escaped;
+      continue;
+    }
+
+    if (inDouble) {
+      if (!escaped && ch === '"') {
+        inDouble = false;
+      }
+      escaped = ch === '\\' && !escaped;
+      continue;
+    }
+
+    if (inTemplate) {
+      if (!escaped && ch === '`') {
+        inTemplate = false;
+      }
+      escaped = ch === '\\' && !escaped;
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      inLineComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      inBlockComment = true;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "'") {
+      inSingle = true;
+      escaped = false;
+      continue;
+    }
+    if (ch === '"') {
+      inDouble = true;
+      escaped = false;
+      continue;
+    }
+    if (ch === '`') {
+      inTemplate = true;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '{') {
+      depth += 1;
+      continue;
+    }
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+      continue;
+    }
+  }
+
+  return -1;
+}
+
+function wrapTestBodyWithSteps(body) {
+  if (body.includes('test.step(')) {
+    return body;
+  }
+
+  const lines = body.split('\n');
+  const nonEmpty = lines.filter((line) => line.trim().length > 0);
+  if (nonEmpty.length === 0) {
+    return body;
+  }
+
+  const baseIndent = (nonEmpty[0].match(/^\s*/) ?? [''])[0];
+  const closingIndent = baseIndent.length >= 2 ? baseIndent.slice(0, -2) : '';
+  const coreLines = lines.slice();
+
+  while (coreLines.length > 0 && coreLines[0].trim() === '') coreLines.shift();
+  while (coreLines.length > 0 && coreLines[coreLines.length - 1].trim() === '') coreLines.pop();
+
+  const blocks = [];
+  let current = [];
+  for (const line of coreLines) {
+    if (line.trim() === '') {
+      if (current.length > 0) {
+        blocks.push(current);
+        current = [];
+      }
+      continue;
+    }
+    current.push(line);
+  }
+  if (current.length > 0) {
+    blocks.push(current);
+  }
+
+  if (blocks.length === 0) {
+    return body;
+  }
+
+  const stepChunks = blocks.map((blockLines, index) => {
+    const title = inferStepTitle(blockLines, index + 1).replace(/'/g, "\\'");
+    const normalized = blockLines.map((line) => (
+      line.startsWith(baseIndent) ? line.slice(baseIndent.length) : line.trimStart()
+    ));
+    const innerLines = normalized.map((line) => `${baseIndent}  ${line}`.trimEnd());
+
+    return [
+      `${baseIndent}await test.step('${title}', async () => {`,
+      ...innerLines,
+      `${baseIndent}});`,
+    ].join('\n');
+  });
+
+  return `\n${stepChunks.join('\n\n')}\n${closingIndent}`;
+}
+
+function applyStepInstrumentationToContent(content) {
+  const testStartRegex = /\btest\s*\(\s*['"`]/g;
+  let match;
+  let cursor = 0;
+  let changed = false;
+  let output = '';
+
+  while ((match = testStartRegex.exec(content)) !== null) {
+    const start = match.index;
+    const arrowIndex = content.indexOf('=>', start);
+    if (arrowIndex === -1) {
+      continue;
+    }
+    const braceIndex = content.indexOf('{', arrowIndex);
+    if (braceIndex === -1) {
+      continue;
+    }
+    const endBraceIndex = findMatchingBrace(content, braceIndex);
+    if (endBraceIndex === -1) {
+      continue;
+    }
+
+    output += content.slice(cursor, braceIndex + 1);
+    const body = content.slice(braceIndex + 1, endBraceIndex);
+    const wrappedBody = wrapTestBodyWithSteps(body);
+    if (wrappedBody !== body) {
+      changed = true;
+    }
+    output += wrappedBody;
+    cursor = endBraceIndex;
+    testStartRegex.lastIndex = endBraceIndex + 1;
+  }
+
+  if (!changed) {
+    return content;
+  }
+
+  output += content.slice(cursor);
+  return output;
+}
+
+function instrumentTestsWithSteps(summary, explicitPaths = [], excludedPaths = new Set()) {
+  const allFiles = explicitPaths.length > 0
+    ? explicitPaths.filter((filePath) => fs.existsSync(filePath))
+    : listSpecFiles('tests');
+
+  for (const filePath of allFiles) {
+    const normalizedPath = path.normalize(filePath);
+    if (excludedPaths.has(normalizedPath) || !fs.existsSync(normalizedPath)) {
+      continue;
+    }
+
+    const original = fs.readFileSync(normalizedPath, 'utf8');
+    const updated = applyStepInstrumentationToContent(original);
+    if (updated === original) {
+      continue;
+    }
+
+    if (!dryRun) {
+      fs.writeFileSync(normalizedPath, updated, 'utf8');
+    }
+
+    if (!summary.refactored.includes(normalizedPath)) {
+      summary.refactored.push(normalizedPath);
+    }
+  }
+}
+
+function ensureAgentStepRule(summary) {
+  const targets = [
+    '.github/agents/playwright/qa-generator.agent.md',
+    '.github/agents/playwright/qa-test-refactorer.agent.md',
+  ];
+
+  const section = [
+    '',
+    '## Step Instrumentation Rule (Mandatory)',
+    '',
+    '- Use `await test.step(...)` in every `test(...)` for major phases (setup, action, validation).',
+    '- Step names must clearly describe intent to make failure location explicit in Playwright reports/logs.',
+    '- Keep architecture boundaries and avoid fixed waits while adding steps.',
+    '',
+  ].join('\n');
+
+  for (const filePath of targets) {
+    if (!fs.existsSync(filePath)) {
+      summary.warnings.push(`agent file not found: ${filePath}`);
+      continue;
+    }
+
+    const original = fs.readFileSync(filePath, 'utf8');
+    if (original.includes('Step Instrumentation Rule (Mandatory)')) {
+      continue;
+    }
+
+    const updated = `${original.trimEnd()}\n${section}`;
+    if (!dryRun) {
+      fs.writeFileSync(filePath, updated, 'utf8');
+    }
+
+    if (!summary.refactored.includes(filePath)) {
+      summary.refactored.push(filePath);
+    }
+  }
+}
+
 function collectRunnableTargets(summary) {
   const files = new Set();
 
@@ -440,7 +741,7 @@ function collectRunnableTargets(summary) {
     files.add(path.normalize(renameEntry.to));
   }
 
-  return Array.from(files).filter((filePath) => fs.existsSync(filePath));
+  return Array.from(files).filter((filePath) => fs.existsSync(filePath) && isSpecFile(filePath));
 }
 
 try {
@@ -473,7 +774,15 @@ try {
 
   if (requested.refactor) {
     const excludedPaths = new Set(summary.deleted.map((filePath) => path.normalize(filePath)));
-    refactorFilesToEnglish(explicitPaths, summary, excludedPaths);
+    if (requested.refactor_names) {
+      refactorFilesToEnglish(explicitPaths, summary, excludedPaths);
+    }
+    if (requested.refactor_steps) {
+      instrumentTestsWithSteps(summary, explicitPaths, excludedPaths);
+    }
+    if (requested.update_agent_rule) {
+      ensureAgentStepRule(summary);
+    }
   }
 
   if (requested.create) {
@@ -505,7 +814,14 @@ try {
   }
 
   if (!requested.create && summary.deleted.length === 0 && summary.refactored.length === 0 && summary.renamed.length === 0) {
-    throw new Error('error: no changes were produced for requested non-create actions.');
+    const deleteOnlyRequest = requested.delete && !requested.refactor && !requested.refactor_names && !requested.refactor_steps && !requested.update_agent_rule;
+    const deleteAlreadySatisfied = deleteOnlyRequest && summary.missing.length > 0;
+
+    if (!deleteAlreadySatisfied) {
+      throw new Error('error: no changes were produced for requested non-create actions.');
+    }
+
+    summary.warnings.push('Delete request already satisfied; target files were not found.');
   }
 
   if (!dryRun && runTargetedTests) {

@@ -90,6 +90,8 @@ gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-te
 - A execucao do trabalho agora detecta intencao no texto do card: `create`, `refactor`, `delete`
 - Quando o card pedir refactor/delete, o fluxo nao cria novo teste por padrao
 - Para exclusao, informe caminho explicito do arquivo (`tests/...spec.ts`) no card
+- Refactor com `test.step` no texto do card aplica instrumentacao de steps nos testes e atualiza regra nos agentes de criacao/refatoracao
+- Delete e idempotente: se arquivo ja nao existir, o fluxo registra `Missing` e segue sem falhar
 - Se o texto do card for generico (sem pista de inventory/cart), o gerador cria um teste padrao de carrinho com dois produtos
 - Priorizacao automatica: `bugfix` primeiro, depois `P0`, `P1`, `P2`
 - No merge da PR, o card vai para `Done` automaticamente quando a PR referencia a issue (`Refs #<numero>` ou `Closes #<numero>`)
