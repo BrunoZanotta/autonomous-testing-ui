@@ -14,7 +14,6 @@ const REQUIRED_VARIABLES = [
   'APP_USER_STANDARD_USERNAME',
   'APP_USER_LOCKED_USERNAME',
   'APP_USER_INVALID_USERNAME',
-  'PROJECT_READY_WORK_CMD',
 ];
 
 const REQUIRED_WORKFLOWS = [
@@ -122,17 +121,31 @@ try {
   const variableJson = readJsonFromGh(['api', `repos/${target.owner}/${target.repo}/actions/variables?per_page=100`]);
 
   const existingSecrets = new Set((secretJson.secrets ?? []).map((item) => String(item.name)));
-  const existingVariables = new Set((variableJson.variables ?? []).map((item) => String(item.name)));
+  const variableItems = variableJson.variables ?? [];
+  const existingVariables = new Set(variableItems.map((item) => String(item.name)));
+  const variableValues = new Map(variableItems.map((item) => [String(item.name), String(item.value ?? '')]));
 
   const missingSecrets = REQUIRED_SECRETS.filter((name) => !existingSecrets.has(name));
   const missingVariables = REQUIRED_VARIABLES.filter((name) => !existingVariables.has(name));
+  const invalidVariables = [];
+
+  const workCmdValue = variableValues.get('PROJECT_READY_WORK_CMD') ?? '';
+  if (workCmdValue && /project-ready-work\.sh\b/.test(workCmdValue)) {
+    invalidVariables.push("PROJECT_READY_WORK_CMD uses deprecated '.sh' command");
+  }
 
   const workflowChecks = checkWorkflowFiles();
   const missingWorkflows = workflowChecks.filter((item) => !item.exists).map((item) => item.file);
 
   const result = {
     repo: target.fullName,
-    status: missingSecrets.length === 0 && missingVariables.length === 0 && missingWorkflows.length === 0 ? 'OK' : 'MISSING_CONFIGURATION',
+    status:
+      missingSecrets.length === 0 &&
+      missingVariables.length === 0 &&
+      missingWorkflows.length === 0 &&
+      invalidVariables.length === 0
+        ? 'OK'
+        : 'MISSING_CONFIGURATION',
     required: {
       secrets: REQUIRED_SECRETS,
       variables: REQUIRED_VARIABLES,
@@ -142,6 +155,9 @@ try {
       secrets: missingSecrets,
       variables: missingVariables,
       workflows: missingWorkflows,
+    },
+    invalid: {
+      variables: invalidVariables,
     },
   };
 
@@ -153,6 +169,7 @@ try {
     process.stdout.write(`Missing secrets: ${missingSecrets.length ? missingSecrets.join(', ') : 'none'}\n`);
     process.stdout.write(`Missing variables: ${missingVariables.length ? missingVariables.join(', ') : 'none'}\n`);
     process.stdout.write(`Missing workflows: ${missingWorkflows.length ? missingWorkflows.join(', ') : 'none'}\n`);
+    process.stdout.write(`Invalid variables: ${invalidVariables.length ? invalidVariables.join(', ') : 'none'}\n`);
   }
 
   if (result.status !== 'OK') {

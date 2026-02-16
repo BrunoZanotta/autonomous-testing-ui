@@ -63,6 +63,10 @@ function parseJsonOutput(raw) {
   }
 }
 
+let selectedItemId = '';
+let selectedIssueNumber = '';
+let movedToInProgress = false;
+
 try {
   if (!run('git', ['rev-parse', '--is-inside-work-tree'], { allowFailure: true }).ok) {
     throw new Error('error: current directory is not a git repository');
@@ -99,6 +103,8 @@ try {
   const contentType = String(readyJson.content_type ?? '');
   const workType = String(readyJson.work_type ?? 'newTest');
   const priorityLabel = String(readyJson.priority_label ?? 'NONE');
+  selectedItemId = itemId;
+  selectedIssueNumber = issueNumber;
 
   let branchPrefix;
   let commitMessage;
@@ -124,6 +130,7 @@ try {
   run('node', ['scripts/git/project-move-item.mjs', owner, String(projectNumber), itemId, inProgressStatus], {
     stdio: 'inherit',
   });
+  movedToInProgress = true;
 
   const workflowEnv = {
     PROJECT_OWNER: owner,
@@ -143,7 +150,7 @@ try {
   const configuredWorkCmd = String(process.env.WORK_CMD ?? '').trim();
   let effectiveWorkCmd = configuredWorkCmd || 'node ./scripts/git/project-ready-work.mjs';
 
-  if (/project-ready-work\\.sh/.test(effectiveWorkCmd)) {
+  if (/project-ready-work\.sh\b/.test(effectiveWorkCmd)) {
     process.stdout.write('WORK_CMD points to deprecated .sh path; using node ./scripts/git/project-ready-work.mjs instead.\n');
     effectiveWorkCmd = 'node ./scripts/git/project-ready-work.mjs';
   }
@@ -209,6 +216,35 @@ try {
     }),
   );
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+
+  if (movedToInProgress && selectedItemId) {
+    try {
+      run('node', ['scripts/git/project-move-item.mjs', owner, String(projectNumber), selectedItemId, readyStatus], {
+        stdio: 'inherit',
+      });
+
+      if (selectedIssueNumber) {
+        run(
+          'gh',
+          [
+            'issue',
+            'comment',
+            selectedIssueNumber,
+            '--repo',
+            repoFullName,
+            '--body',
+            `Automated flow failed and card was moved back to '${readyStatus}'. Error: ${message}`,
+          ],
+          { stdio: 'inherit', allowFailure: true },
+        );
+      }
+    } catch (rollbackError) {
+      const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+      console.error(`error: failed to rollback item '${selectedItemId}' to '${readyStatus}': ${rollbackMessage}`);
+    }
+  }
+
   process.exit(1);
 }
