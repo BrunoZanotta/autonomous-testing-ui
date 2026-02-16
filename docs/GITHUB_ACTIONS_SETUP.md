@@ -87,6 +87,9 @@ gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-te
 - Card precisa estar em `Ready`
 - Label de tipo recomendada: `bug` ou `new test`
 - Sem label de tipo, o fluxo infere o tipo pelo titulo/corpo e usa fallback `newTest`
+- A execucao do trabalho agora detecta intencao no texto do card: `create`, `refactor`, `delete`
+- Quando o card pedir refactor/delete, o fluxo nao cria novo teste por padrao
+- Para exclusao, informe caminho explicito do arquivo (`tests/...spec.ts`) no card
 - Se o texto do card for generico (sem pista de inventory/cart), o gerador cria um teste padrao de carrinho com dois produtos
 - Priorizacao automatica: `bugfix` primeiro, depois `P0`, `P1`, `P2`
 - No merge da PR, o card vai para `Done` automaticamente quando a PR referencia a issue (`Refs #<numero>` ou `Closes #<numero>`)

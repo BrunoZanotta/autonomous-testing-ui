@@ -29,6 +29,61 @@ function escapeSingleQuotes(value) {
   return String(value).replace(/'/g, "\\'");
 }
 
+const PT_TO_EN_WORD = new Map([
+  ['adicionando', 'adding'],
+  ['adicione', 'add'],
+  ['adicionar', 'add'],
+  ['adicionado', 'added'],
+  ['adicionados', 'added'],
+  ['apenas', 'only'],
+  ['auto', 'auto'],
+  ['carrinho', 'cart'],
+  ['corrigir', 'fix'],
+  ['criar', 'create'],
+  ['descricao', 'description'],
+  ['despacho', 'dispatch'],
+  ['disparo', 'trigger'],
+  ['dois', 'two'],
+  ['duas', 'two'],
+  ['english', 'english'],
+  ['erro', 'error'],
+  ['excluir', 'delete'],
+  ['exclusao', 'deletion'],
+  ['fluxo', 'flow'],
+  ['gerado', 'generated'],
+  ['gerados', 'generated'],
+  ['gerar', 'generate'],
+  ['ingles', 'english'],
+  ['manual', 'manual'],
+  ['mudar', 'change'],
+  ['nao', 'not'],
+  ['no', 'in'],
+  ['nome', 'name'],
+  ['nomes', 'names'],
+  ['novo', 'new'],
+  ['novo', 'new'],
+  ['pedido', 'requested'],
+  ['pedi', 'requested'],
+  ['portugues', 'portuguese'],
+  ['produto', 'product'],
+  ['produtos', 'products'],
+  ['quatro', 'four'],
+  ['que', 'that'],
+  ['refatorar', 'refactor'],
+  ['refatore', 'refactor'],
+  ['refatoracao', 'refactor'],
+  ['remover', 'remove'],
+  ['sem', 'without'],
+  ['teste', 'test'],
+  ['testes', 'tests'],
+  ['tres', 'three'],
+  ['validar', 'validate'],
+  ['validacao', 'validation'],
+  ['wrong', 'wrong'],
+]);
+
+const PORTUGUESE_SIGNAL_REGEX = /\b(criar|adicionando|carrinho|produto|produtos|portugues|ingles|teste|testes|refatorar|remover|excluir|validar|novo)\b/i;
+
 function readStoreProducts() {
   const inventoryPath = path.join('pages', 'InventoryPage.ts');
   const content = fs.readFileSync(inventoryPath, 'utf8');
@@ -154,40 +209,348 @@ function generateCartTwoProductsTest(products) {
   return filePath;
 }
 
+function isSpecFile(filePath) {
+  return String(filePath).endsWith('.spec.ts');
+}
+
+function listSpecFiles(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listSpecFiles(fullPath));
+      continue;
+    }
+    if (entry.isFile() && isSpecFile(fullPath)) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function parseActions(text) {
+  const source = String(text ?? '').toLowerCase();
+  const noCreate = /(nao|não|do not|don't)\s+(criar|create|adicionar|add|gerar|generate)\s+(novo\s+)?teste?/.test(source);
+  const explicitCreateCommand = /\b(crie|criar|adicione|adicionar|gere|gerar|implemente|create|add|generate)\b[^.\n]{0,40}\b(test|teste|tests|testes)\b/.test(
+    source,
+  );
+  const wantsRefactor = /(refator|refactor|renomear|rename|padroniz|normaliz|ingles|english)/.test(source);
+  const wantsDelete = /(excluir|exclua|remove|remover|delete|apagar)/.test(source);
+  const wantsCreateRaw = explicitCreateCommand;
+
+  return {
+    create: wantsCreateRaw && !noCreate,
+    refactor: wantsRefactor,
+    delete: wantsDelete,
+  };
+}
+
+function toRepoRelativePath(filePath) {
+  const normalized = path.normalize(filePath);
+  return normalized.startsWith(`${path.sep}`) ? normalized.slice(1) : normalized;
+}
+
+function extractExplicitTestPaths(text) {
+  const files = new Set();
+  const source = String(text ?? '');
+  const withTestsPath = source.match(/tests\/[A-Za-z0-9_./-]+\.spec\.ts/g) ?? [];
+  const fileNameOnly = source.match(/\b[a-z]+-\d{3}-[a-z0-9-]+\.spec\.ts\b/gi) ?? [];
+
+  for (const value of withTestsPath) {
+    files.add(path.normalize(value.trim()));
+  }
+
+  if (fileNameOnly.length > 0) {
+    const existing = listSpecFiles('tests');
+    for (const name of fileNameOnly) {
+      const matches = existing.filter((filePath) => path.basename(filePath).toLowerCase() === name.toLowerCase());
+      if (matches.length === 1) {
+        files.add(path.normalize(matches[0]));
+      }
+    }
+  }
+
+  return Array.from(files);
+}
+
+function normalizeWord(word) {
+  return word
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function mapWord(word) {
+  const normalized = normalizeWord(word);
+  const mapped = PT_TO_EN_WORD.get(normalized);
+  if (!mapped) {
+    return word;
+  }
+
+  if (word.toUpperCase() === word) {
+    return mapped.toUpperCase();
+  }
+  if (word[0] === word[0]?.toUpperCase()) {
+    return mapped[0].toUpperCase() + mapped.slice(1);
+  }
+  return mapped;
+}
+
+function translateSentence(text) {
+  return String(text).replace(/[A-Za-zÀ-ÿ]+/g, (word) => mapWord(word));
+}
+
+function translateSlug(slug) {
+  const parts = String(slug)
+    .split('-')
+    .filter(Boolean);
+  return parts
+    .map((token) => mapWord(token))
+    .join('-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function hasPortugueseInFilename(filePath) {
+  const fileName = path.basename(filePath, '.spec.ts');
+  return PORTUGUESE_SIGNAL_REGEX.test(fileName);
+}
+
+function hasPortugueseInContent(content) {
+  return /(test|describe)\(\s*['"`][^'"`]*(criar|adicionando|carrinho|produto|produtos|portugues|ingles|teste|testes|validar|novo)[^'"`]*['"`]/i.test(
+    content,
+  );
+}
+
+function refactorTitlesToEnglish(content) {
+  return String(content).replace(
+    /(test|describe)\(\s*(['"`])([^'"`]+)\2/g,
+    (_all, fn, quote, title) => `${fn}(${quote}${translateSentence(title)}${quote}`,
+  );
+}
+
+function translateFileNameToEnglish(filePath) {
+  const directory = path.dirname(filePath);
+  const fileName = path.basename(filePath);
+  const suffix = '.spec.ts';
+  if (!fileName.endsWith(suffix)) {
+    return filePath;
+  }
+
+  const stem = fileName.slice(0, -suffix.length);
+  const translatedStem = translateSlug(stem);
+  if (!translatedStem || translatedStem === stem) {
+    return filePath;
+  }
+
+  return path.join(directory, `${translatedStem}${suffix}`);
+}
+
+function deleteRequestedFiles(explicitPaths, summary) {
+  if (explicitPaths.length === 0) {
+    throw new Error('error: delete was requested but no explicit test file path was found in card text.');
+  }
+
+  for (const requestedPath of explicitPaths) {
+    const safePath = path.normalize(requestedPath);
+    if (!safePath.startsWith('tests')) {
+      throw new Error(`error: refusing to delete path outside tests/: ${safePath}`);
+    }
+    if (!safePath.endsWith('.spec.ts')) {
+      throw new Error(`error: refusing to delete non-spec file: ${safePath}`);
+    }
+    if (!fs.existsSync(safePath)) {
+      summary.missing.push(safePath);
+      continue;
+    }
+
+    if (!dryRun) {
+      fs.rmSync(safePath, { force: true });
+    }
+    summary.deleted.push(safePath);
+  }
+}
+
+function refactorFilesToEnglish(explicitPaths, summary, excludedPaths = new Set()) {
+  const scanAutoCandidates = () =>
+    listSpecFiles('tests').filter((filePath) => {
+      if (excludedPaths.has(path.normalize(filePath))) {
+        return false;
+      }
+      const content = fs.readFileSync(filePath, 'utf8');
+      return hasPortugueseInFilename(filePath) || hasPortugueseInContent(content);
+    });
+
+  let candidates = [];
+  if (explicitPaths.length > 0) {
+    candidates = explicitPaths.filter((filePath) => fs.existsSync(filePath) && !excludedPaths.has(path.normalize(filePath)));
+    if (candidates.length === 0 && excludedPaths.size > 0) {
+      candidates = scanAutoCandidates();
+    }
+  } else {
+    candidates = scanAutoCandidates();
+  }
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) {
+      continue;
+    }
+
+    const originalContent = fs.readFileSync(candidate, 'utf8');
+    const updatedContent = refactorTitlesToEnglish(originalContent);
+
+    if (!dryRun && updatedContent !== originalContent) {
+      fs.writeFileSync(candidate, updatedContent, 'utf8');
+    }
+    if (updatedContent !== originalContent) {
+      summary.refactored.push(candidate);
+    }
+
+    const targetPath = translateFileNameToEnglish(candidate);
+    if (targetPath !== candidate) {
+      if (fs.existsSync(targetPath)) {
+        summary.warnings.push(`skip rename; target already exists: ${targetPath}`);
+      } else {
+        if (!dryRun) {
+          fs.renameSync(candidate, targetPath);
+        }
+        summary.renamed.push({ from: candidate, to: targetPath });
+      }
+    }
+  }
+}
+
+function collectRunnableTargets(summary) {
+  const files = new Set();
+
+  for (const value of summary.created) {
+    files.add(path.normalize(value));
+  }
+  for (const value of summary.refactored) {
+    files.add(path.normalize(value));
+  }
+  for (const renameEntry of summary.renamed) {
+    files.add(path.normalize(renameEntry.to));
+  }
+
+  return Array.from(files).filter((filePath) => fs.existsSync(filePath));
+}
+
 try {
   const isCartCard = /(carrinho|cart|checkout|subtotal|valor total|total da compra)/i.test(cardText);
   const isInventoryCard = /(inv-\d*|inventory|produto|product)/i.test(cardText);
 
-  const products = readStoreProducts();
-  let createdTestFile = '';
-
-  if (isCartCard) {
-    createdTestFile = generateCartTwoProductsTest(products);
-  } else if (isInventoryCard) {
-    const productName = extractProductName(cardText);
-    if (!productName) {
-      throw new Error('error: could not extract product name from card text. expected pattern like "Sauce Labs <Product Name>"');
-    }
-
-    const product = products.find((entry) => entry.name.toLowerCase() === productName.toLowerCase());
-    if (product) {
-      createdTestFile = generateInventoryTestByKey(productName, product.key);
+  const requested = parseActions(cardText);
+  if (!requested.create && !requested.refactor && !requested.delete) {
+    if (cardWorkType === 'newTest') {
+      requested.create = true;
     } else {
-      createdTestFile = generateInventoryTestByName(productName);
+      throw new Error('error: no actionable intent found in card text for bugfix flow. add explicit refactor/delete/create instruction.');
     }
-  } else {
-    // Fallback keeps the automation moving even when card text is generic.
-    process.stdout.write(
-      `No explicit cart/inventory intent found for '${cardTitle}'. Using default cart two-products scenario (work_type=${cardWorkType}).\n`,
-    );
-    createdTestFile = generateCartTwoProductsTest(products);
+  }
+
+  const explicitPaths = extractExplicitTestPaths(cardText);
+  const summary = {
+    created: [],
+    deleted: [],
+    refactored: [],
+    renamed: [],
+    missing: [],
+    warnings: [],
+    actions: requested,
+  };
+
+  if (requested.delete) {
+    deleteRequestedFiles(explicitPaths, summary);
+  }
+
+  if (requested.refactor) {
+    const excludedPaths = new Set(summary.deleted.map((filePath) => path.normalize(filePath)));
+    refactorFilesToEnglish(explicitPaths, summary, excludedPaths);
+  }
+
+  if (requested.create) {
+    const products = readStoreProducts();
+    let createdTestFile = '';
+
+    if (isCartCard) {
+      createdTestFile = generateCartTwoProductsTest(products);
+    } else if (isInventoryCard) {
+      const productName = extractProductName(cardText);
+      if (!productName) {
+        throw new Error('error: could not extract product name from card text. expected pattern like "Sauce Labs <Product Name>"');
+      }
+
+      const product = products.find((entry) => entry.name.toLowerCase() === productName.toLowerCase());
+      if (product) {
+        createdTestFile = generateInventoryTestByKey(productName, product.key);
+      } else {
+        createdTestFile = generateInventoryTestByName(productName);
+      }
+    } else {
+      process.stdout.write(
+        `No explicit cart/inventory intent found for '${cardTitle}'. Using default cart two-products scenario (work_type=${cardWorkType}).\n`,
+      );
+      createdTestFile = generateCartTwoProductsTest(products);
+    }
+
+    summary.created.push(createdTestFile);
+  }
+
+  if (!requested.create && summary.deleted.length === 0 && summary.refactored.length === 0 && summary.renamed.length === 0) {
+    throw new Error('error: no changes were produced for requested non-create actions.');
   }
 
   if (!dryRun && runTargetedTests) {
-    run('npx', ['playwright', 'test', createdTestFile, '--project=chromium'], { stdio: 'inherit' });
+    const runnableTargets = collectRunnableTargets(summary);
+    if (runnableTargets.length > 0) {
+      run('npx', ['playwright', 'test', ...runnableTargets, '--project=chromium'], { stdio: 'inherit' });
+    } else {
+      process.stdout.write('No runnable test targets generated for this card. Skipping targeted test run.\n');
+    }
   }
 
-  console.log(`Generated: ${createdTestFile}`);
+  for (const filePath of summary.created) {
+    console.log(`Generated: ${filePath}`);
+  }
+  for (const filePath of summary.deleted) {
+    console.log(`Deleted: ${filePath}`);
+  }
+  for (const filePath of summary.refactored) {
+    console.log(`Refactored: ${toRepoRelativePath(filePath)}`);
+  }
+  for (const renameEntry of summary.renamed) {
+    console.log(`Renamed: ${toRepoRelativePath(renameEntry.from)} -> ${toRepoRelativePath(renameEntry.to)}`);
+  }
+  for (const warning of summary.warnings) {
+    console.log(`Warning: ${warning}`);
+  }
+  for (const missing of summary.missing) {
+    console.log(`Missing: ${missing}`);
+  }
+
+  console.log(
+    JSON.stringify({
+      status: 'WORKFLOW_COMPLETED',
+      actions: summary.actions,
+      created: summary.created,
+      deleted: summary.deleted,
+      refactored: summary.refactored.map((filePath) => toRepoRelativePath(filePath)),
+      renamed: summary.renamed.map((entry) => ({
+        from: toRepoRelativePath(entry.from),
+        to: toRepoRelativePath(entry.to),
+      })),
+      missing: summary.missing,
+      warnings: summary.warnings,
+    }),
+  );
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
