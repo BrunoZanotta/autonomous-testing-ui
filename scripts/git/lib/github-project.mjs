@@ -46,7 +46,11 @@ export function ghGraphql(query, variables = {}, { retries = 2 } = {}) {
   const args = ['api', 'graphql', '-f', `query=${query}`];
 
   for (const [key, value] of Object.entries(variables)) {
-    args.push('-F', `${key}=${value}`);
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      args.push('-F', `${key}=${value}`);
+    } else {
+      args.push('-f', `${key}=${value}`);
+    }
   }
 
   let lastError = null;

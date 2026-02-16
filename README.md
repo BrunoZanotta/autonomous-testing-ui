@@ -200,6 +200,7 @@ Agendamento automatico:
 - Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
 - Se o card for genérico (sem pista de inventory/cart), o gerador aplica fallback para um cenário padrão de carrinho com dois produtos.
 - Para o sync de `Done`, a PR precisa referenciar a issue (`Refs #<numero>` ou `Closes #<numero>`); o fluxo automatico já inclui `Refs`.
+- Se a PR nao tiver referencia explicita, o sync usa fallback pela URL da PR registrada no comentario automatico da issue.
 
 Scripts de apoio:
 ```bash

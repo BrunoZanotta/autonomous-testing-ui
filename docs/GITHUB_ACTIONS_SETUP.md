@@ -90,5 +90,6 @@ gh workflow run project-ready-orchestrator.yml --repo BrunoZanotta/autonomous-te
 - Se o texto do card for generico (sem pista de inventory/cart), o gerador cria um teste padrao de carrinho com dois produtos
 - Priorizacao automatica: `bugfix` primeiro, depois `P0`, `P1`, `P2`
 - No merge da PR, o card vai para `Done` automaticamente quando a PR referencia a issue (`Refs #<numero>` ou `Closes #<numero>`)
+- Fallback: se faltar referencia no body da PR, o sync tenta correlacionar pela URL da PR nos comentarios automaticos da issue
 
 Se nao houver card elegivel, o workflow encerra sem erro.
