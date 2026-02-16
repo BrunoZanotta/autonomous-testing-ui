@@ -31,9 +31,10 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - Validate GitHub Project scopes for gh token: `read:project` and `project`
 
 2. Branch Creation + Card Transition
-- Ready cards must include one work-type label:
+- Work type resolution for Ready cards:
   - `bug` (or `bugfix`) => work type `bugfix`
   - `new test` (or `newtest`/`new-test`/`new_test`) => work type `newTest`
+  - without work-type label => infer from title/body; fallback `newTest`
 - Create branch using work-type prefix:
   - `bugfix/<slug>`
   - `newTest/<slug>`
@@ -58,7 +59,7 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - Run broader regression/smoke scope when applicable
 
 6. Governance and Security Gate (Mandatory)
-- Execute: `./scripts/ci/governance-gate.sh governance-gate-report.md`
+- Execute: `node ./scripts/ci/governance-gate.mjs governance-gate-report.md`
 - Use `.github/agents/playwright/qa-governance-guardian.agent.md` as policy source
 - If report status is FAIL, stop delivery and do not commit
 
@@ -74,19 +75,19 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 8. Push and PR Creation
 - Use `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
 - Preferred command:
-  - `./scripts/git/create-pr-flow.sh <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]`
+  - `node ./scripts/git/create-pr-flow.mjs <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]`
 - Required outcome:
   - branch pushed to origin
   - PR opened on GitHub (or exact fallback command if `gh` unavailable)
 
 9. Project Card Transition (when card-driven flow is used)
 - Fetch prioritized ready item:
-  - `./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
+  - `node ./scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
 - Run full flow:
-  - `./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main`
+  - `node ./scripts/git/project-ready-to-pr.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main`
 - Move item manually when required:
-  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In progress"`
-  - `./scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In review"`
+  - `node ./scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In progress"`
+  - `node ./scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In review"`
 
 10. Final Response Contract
 - Return:
@@ -109,7 +110,6 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 - No prohibited waits (`networkidle`).
 - Do not bypass failed governance checks.
 - Do not use destructive git operations unless explicitly requested.
-- Do not auto-process `Ready` card without work-type label (`bug` or `new test`).
 
 ## Agent Registry
 
@@ -125,30 +125,29 @@ If using GitHub Project automation (`BrunoZanotta / project #3`), execute:
 
 CI workflows:
 - `.github/workflows/playwright.yml`
-- `.github/workflows/project-ready-scheduler.yml` (cron ticker every 5 minutes, off top-of-hour)
-- `.github/workflows/project-ready-orchestrator.yml` (executor for card-driven branch/test/gate/PR flow)
+- `.github/workflows/project-ready-orchestrator.yml` (executor card-driven with built-in cron every 5 minutes)
 
 Local policy script:
-- `scripts/ci/governance-gate.sh`
+- `scripts/ci/governance-gate.mjs`
 
 Delivery scripts:
-- `scripts/git/create-pr-flow.sh`
-- `scripts/git/project-ready-item.sh`
-- `scripts/git/project-ready-to-pr.sh`
-- `scripts/git/project-move-item.sh`
+- `scripts/git/create-pr-flow.mjs`
+- `scripts/git/project-ready-item.mjs`
+- `scripts/git/project-ready-to-pr.mjs`
+- `scripts/git/project-move-item.mjs`
 
-## Scheduler Runtime Config
+## Orchestrator Runtime Config
 
 Cadence:
-- `project-ready-scheduler.yml` ticks at minutes `3,8,13,18,23,28,33,38,43,48,53,58` (UTC).
+- `project-ready-orchestrator.yml` runs at minutes `3,8,13,18,23,28,33,38,43,48,53,58` (UTC) and also supports `workflow_dispatch`.
 
 Required:
 - Secret `GH_PROJECT_TOKEN` (repo + project scopes)
 
 Recommended:
 - Variable `PROJECT_READY_WORK_CMD` (default implementation command)
-  - Example: `bash ./scripts/git/project-ready-work.sh`
+  - Example: `node ./scripts/git/project-ready-work.mjs`
 
 Project label conventions:
-- Work type labels: `bug` or `new test`
+- Work type labels are recommended: `bug` or `new test` (flow now infers when missing)
 - Priority labels: `P0`, `P1`, `P2`

@@ -15,9 +15,11 @@ You manage end-to-end delivery for cards in GitHub Project v2.
 
 ## Priority and Label Rules
 
-- Only process `Ready` cards with one work-type label:
+- Process all `Ready` cards.
+- Work type resolution:
   - `bug` (or `bugfix`) => work type `bugfix`
   - `new test` (or `newtest`/`new-test`/`new_test`) => work type `newTest`
+  - when missing label => infer from title/body; fallback to `newTest`
 - Priority order when multiple cards are in `Ready`:
   1. `bugfix` cards first
   2. then `P0`
@@ -38,16 +40,15 @@ Agents:
 - `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
 
 Scripts:
-- `scripts/git/project-ready-item.sh`
-- `scripts/git/project-move-item.sh`
-- `scripts/ci/governance-gate.sh`
-- `scripts/git/create-pr-flow.sh`
-- `scripts/git/project-ready-to-pr.sh`
+- `scripts/git/project-ready-item.mjs`
+- `scripts/git/project-move-item.mjs`
+- `scripts/ci/governance-gate.mjs`
+- `scripts/git/create-pr-flow.mjs`
+- `scripts/git/project-ready-to-pr.mjs`
 
 ## Non-Negotiable Rules
 
 - Do not process cards outside `Ready`.
-- Do not process cards missing work-type label (`bug` or `new test`).
 - Do not commit or open PR if governance gate fails.
 - Never expose secrets or commit `.env`.
 - Preserve layered architecture contracts.
@@ -55,8 +56,8 @@ Scripts:
 ## End-to-End Workflow
 
 1. Fetch prioritized ready card
-- Run `scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
-- If no eligible card is available, stop with `NO_WORK`.
+- Run `node scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready`
+- If no card is available in `Ready`, stop with `NO_WORK`.
 
 2. Create branch and move card to In progress
 - Create branch from `main` using required prefix:
@@ -74,15 +75,15 @@ Scripts:
 
 5. Validate
 - Run test discovery and relevant test execution.
-- Run governance gate: `./scripts/ci/governance-gate.sh governance-gate-report.md`
+- Run governance gate: `node ./scripts/ci/governance-gate.mjs governance-gate-report.md`
 - Stop on FAIL.
 
 6. Delivery
-- Create commit/push/PR using `scripts/git/create-pr-flow.sh`.
+- Create commit/push/PR using `node scripts/git/create-pr-flow.mjs`.
 - Capture PR URL from command output.
 
 7. Move card to In review
-- Use `scripts/git/project-move-item.sh BrunoZanotta 3 <item_id> "In review"`.
+- Use `node scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In review"`.
 - If PR URL exists and card is backed by issue, comment with PR link.
 
 ## Output Contract

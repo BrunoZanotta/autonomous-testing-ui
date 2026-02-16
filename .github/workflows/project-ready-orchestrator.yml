@@ -1,6 +1,8 @@
 name: Project Ready Orchestrator
 
 on:
+  schedule:
+    - cron: '3-59/5 * * * *'
   workflow_dispatch:
   repository_dispatch:
     types:
@@ -62,7 +64,7 @@ jobs:
         id: ready
         run: |
           set +e
-          ready_json="$(./scripts/git/project-ready-item.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready 2>&1)"
+          ready_json="$(node ./scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready 2>&1)"
           status=$?
           set -e
 
@@ -103,4 +105,4 @@ jobs:
 
       - name: Run Ready to PR flow
         if: steps.ready.outputs.has_work == 'true'
-        run: ./scripts/git/project-ready-to-pr.sh BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
+        run: node ./scripts/git/project-ready-to-pr.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main

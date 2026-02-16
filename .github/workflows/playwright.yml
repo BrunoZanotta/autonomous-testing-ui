@@ -248,7 +248,7 @@ jobs:
         run: npm ci
 
       - name: Run Governance Gate
-        run: ./scripts/ci/governance-gate.sh governance-gate-report.md
+        run: node ./scripts/ci/governance-gate.mjs governance-gate-report.md
 
       - name: Upload governance report
         uses: actions/upload-artifact@v4

@@ -11,3 +11,7 @@ governance-gate-report*.md
 
 # Environment
 .env
+
+# IDE (keep shared MCP config versioned)
+.vscode/*
+!.vscode/mcp.json
