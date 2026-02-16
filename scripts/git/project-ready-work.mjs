@@ -291,6 +291,46 @@ function extractExplicitTestPaths(text) {
   return Array.from(files);
 }
 
+function extractExplicitRenamePairs(text) {
+  const source = String(text ?? '');
+  const lines = source.split('\n');
+  const pathRegex = /tests\/[A-Za-z0-9_./-]+\.spec\.ts/g;
+  const pairs = [];
+  let pendingSource = '';
+
+  for (const line of lines) {
+    const paths = line.match(pathRegex) ?? [];
+    const hasArrow = /->|=>|→/.test(line);
+
+    if (hasArrow && paths.length >= 2) {
+      pairs.push({ from: path.normalize(paths[0]), to: path.normalize(paths[1]) });
+      pendingSource = '';
+      continue;
+    }
+
+    if (hasArrow && paths.length === 1 && pendingSource) {
+      pairs.push({ from: path.normalize(pendingSource), to: path.normalize(paths[0]) });
+      pendingSource = '';
+      continue;
+    }
+
+    if (!hasArrow && paths.length === 1) {
+      pendingSource = path.normalize(paths[0]);
+      continue;
+    }
+
+    if (paths.length === 0) {
+      pendingSource = '';
+    }
+  }
+
+  const unique = new Map();
+  for (const pair of pairs) {
+    unique.set(`${pair.from}__${pair.to}`, pair);
+  }
+  return Array.from(unique.values());
+}
+
 function normalizeWord(word) {
   return word
     .normalize('NFKD')
@@ -356,12 +396,49 @@ function translateFileNameToEnglish(filePath) {
   }
 
   const stem = fileName.slice(0, -suffix.length);
-  const translatedStem = translateSlug(stem);
+  let translatedStem = translateSlug(stem);
+  translatedStem = translatedStem
+    .replace(/-in-cart\b/g, '-to-cart')
+    .replace(/-two-product\b/g, '-two-products')
+    .replace(/-three-product\b/g, '-three-products')
+    .replace(/-that-add-/g, '-that-adds-');
+
   if (!translatedStem || translatedStem === stem) {
     return filePath;
   }
 
   return path.join(directory, `${translatedStem}${suffix}`);
+}
+
+function applyExplicitRenamePairs(renamePairs, summary) {
+  for (const pair of renamePairs) {
+    const fromPath = path.normalize(pair.from);
+    const toPath = path.normalize(pair.to);
+
+    if (!fromPath.startsWith('tests') || !toPath.startsWith('tests')) {
+      throw new Error(`error: explicit rename must stay under tests/: ${fromPath} -> ${toPath}`);
+    }
+    if (!fromPath.endsWith('.spec.ts') || !toPath.endsWith('.spec.ts')) {
+      throw new Error(`error: explicit rename must target .spec.ts files: ${fromPath} -> ${toPath}`);
+    }
+    if (fromPath === toPath) {
+      summary.warnings.push(`skip rename; source and target are equal: ${fromPath}`);
+      continue;
+    }
+    if (!fs.existsSync(fromPath)) {
+      summary.missing.push(fromPath);
+      continue;
+    }
+    if (fs.existsSync(toPath)) {
+      summary.warnings.push(`skip rename; target already exists: ${toPath}`);
+      continue;
+    }
+
+    if (!dryRun) {
+      fs.renameSync(fromPath, toPath);
+    }
+    summary.renamed.push({ from: fromPath, to: toPath });
+  }
 }
 
 function deleteRequestedFiles(explicitPaths, summary) {
@@ -758,6 +835,7 @@ try {
   }
 
   const explicitPaths = extractExplicitTestPaths(cardText);
+  const explicitRenamePairs = extractExplicitRenamePairs(cardText);
   const summary = {
     created: [],
     deleted: [],
@@ -775,7 +853,11 @@ try {
   if (requested.refactor) {
     const excludedPaths = new Set(summary.deleted.map((filePath) => path.normalize(filePath)));
     if (requested.refactor_names) {
-      refactorFilesToEnglish(explicitPaths, summary, excludedPaths);
+      if (explicitRenamePairs.length > 0) {
+        applyExplicitRenamePairs(explicitRenamePairs, summary);
+      } else {
+        refactorFilesToEnglish(explicitPaths, summary, excludedPaths);
+      }
     }
     if (requested.refactor_steps) {
       instrumentTestsWithSteps(summary, explicitPaths, excludedPaths);
