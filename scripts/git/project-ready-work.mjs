@@ -7,6 +7,7 @@ import { run } from '../lib/cli.mjs';
 const cardTitle = process.env.PROJECT_CARD_TITLE ?? '';
 const cardBody = process.env.PROJECT_CARD_BODY ?? '';
 const cardText = `${cardTitle} ${cardBody}`.trim();
+const cardWorkType = process.env.PROJECT_CARD_WORK_TYPE ?? 'newTest';
 const dryRun = process.env.DRY_RUN === '1';
 const runTargetedTests = process.env.RUN_TARGETED_TESTS !== '0';
 const issueNumberRaw = process.env.PROJECT_CARD_ISSUE_NUMBER ?? '0';
@@ -175,7 +176,11 @@ try {
       createdTestFile = generateInventoryTestByName(productName);
     }
   } else {
-    throw new Error(`error: unsupported card type for automated generator. title: ${cardTitle}`);
+    // Fallback keeps the automation moving even when card text is generic.
+    process.stdout.write(
+      `No explicit cart/inventory intent found for '${cardTitle}'. Using default cart two-products scenario (work_type=${cardWorkType}).\n`,
+    );
+    createdTestFile = generateCartTwoProductsTest(products);
   }
 
   if (!dryRun && runTargetedTests) {
