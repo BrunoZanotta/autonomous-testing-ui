@@ -20,6 +20,7 @@ const REQUIRED_WORKFLOWS = [
   '.github/workflows/playwright.yml',
   '.github/workflows/project-ready-orchestrator.yml',
   '.github/workflows/project-ready-scheduler.yml',
+  '.github/workflows/project-done-on-merge.yml',
 ];
 
 function parseRepoFromOrigin() {

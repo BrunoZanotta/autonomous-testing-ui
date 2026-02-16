@@ -58,14 +58,16 @@ autonomous-testing-ui/
 │   │       └── github-project-ready-pr-orchestrator.agent.md
 │   ├── workflows/
 │   │   ├── playwright.yml                  # CI/CD em stages
-│   │   ├── project-ready-scheduler.yml    # Cron: dispara orquestrador a cada 5 min
-│   │   └── project-ready-orchestrator.yml # Executor: Ready -> In progress -> In review
+│   │   ├── project-ready-scheduler.yml    # Loop Ready -> Orchestrator (workflow_run + cron backup)
+│   │   ├── project-ready-orchestrator.yml # Executor: Ready -> In progress -> In review
+│   │   └── project-done-on-merge.yml      # Merge PR -> Done no Project
 ├── scripts/
 │   ├── ci/
 │   │   └── governance-gate.mjs
 │   └── git/
 │       ├── project-ready-item.mjs
 │       ├── project-ready-to-pr.mjs
+│       ├── project-pr-merge-to-done.mjs
 │       ├── project-move-item.mjs
 │       └── project-ready-work.mjs
 └── playwright.config.ts
@@ -187,19 +189,23 @@ Use este agent para operacao automatizada via GitHub Project:
 - rodar testes e governance gate
 - criar commit e abrir PR
 - mover card para `In Review` apos criacao do PR
+- no merge da PR, mover card para `Done` automaticamente (sem fechar issue manualmente)
 
 Agendamento automatico:
 - `.github/workflows/project-ready-scheduler.yml` roda em loop por `workflow_run` do orquestrador (cooldown de 5 min), com `cron` como backup.
 - `push` em `main` tambem pode bootstrapar o scheduler automaticamente.
 - `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
+- `.github/workflows/project-done-on-merge.yml` roda no merge da PR e sincroniza o card para `Done`.
 - Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
 - Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
 - Se o card for genérico (sem pista de inventory/cart), o gerador aplica fallback para um cenário padrão de carrinho com dois produtos.
+- Para o sync de `Done`, a PR precisa referenciar a issue (`Refs #<numero>` ou `Closes #<numero>`); o fluxo automatico já inclui `Refs`.
 
 Scripts de apoio:
 ```bash
 node ./scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready
 node ./scripts/git/project-ready-to-pr.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
+node ./scripts/git/project-pr-merge-to-done.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui <pr_number> Done
 node ./scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In Review"
 ```
 
