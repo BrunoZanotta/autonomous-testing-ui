@@ -4,6 +4,14 @@ on:
   schedule:
     - cron: '3-59/5 * * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_run:
+    workflows:
+      - Project Ready Orchestrator
+    types:
+      - completed
 
 permissions:
   actions: write
@@ -18,6 +26,16 @@ jobs:
     name: Dispatch Orchestrator
     runs-on: ubuntu-latest
     steps:
+      - name: Print trigger context
+        run: |
+          echo "event=${GITHUB_EVENT_NAME}"
+          echo "ref=${GITHUB_REF}"
+          date -u '+%Y-%m-%d %H:%M:%S UTC'
+
+      - name: Cooldown before next cycle
+        if: github.event_name == 'workflow_run'
+        run: sleep 300
+
       - name: Dispatch Project Ready Orchestrator
         uses: actions/github-script@v7
         with:
