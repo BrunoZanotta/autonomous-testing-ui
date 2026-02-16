@@ -32,7 +32,7 @@ jobs:
       READY_STATUS: Ready
       IN_PROGRESS_STATUS: In progress
       IN_REVIEW_STATUS: In review
-      WORK_CMD: ${{ vars.PROJECT_READY_WORK_CMD }}
+      WORK_CMD: ${{ vars.PROJECT_READY_WORK_CMD || 'node ./scripts/git/project-ready-work.mjs' }}
 
     steps:
       - name: Print trigger context

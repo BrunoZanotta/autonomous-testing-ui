@@ -27,17 +27,21 @@ gh secret set GH_PROJECT_TOKEN --repo BrunoZanotta/autonomous-testing-ui
 # repita para os outros secrets
 ```
 
-## 3) Variables obrigatorias
+## 3) Variables obrigatorias e opcionais
 - `BASE_URL`
 - `APP_USER_STANDARD_USERNAME`
 - `APP_USER_LOCKED_USERNAME`
 - `APP_USER_INVALID_USERNAME`
+
+Variavel opcional:
 - `PROJECT_READY_WORK_CMD`
 
 Valor recomendado para `PROJECT_READY_WORK_CMD`:
 ```bash
 node ./scripts/git/project-ready-work.mjs
 ```
+
+Nao use valor `.sh` (ex.: `bash ./scripts/git/project-ready-work.sh`), pois e legado.
 
 Exemplo:
 ```bash
