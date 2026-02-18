@@ -58,7 +58,7 @@ autonomous-testing-ui/
 │   │       └── github-project-ready-pr-orchestrator.agent.md
 │   ├── workflows/
 │   │   ├── playwright.yml                  # CI/CD em stages
-│   │   ├── project-ready-scheduler.yml    # Loop Ready -> Orchestrator (workflow_run + cron backup)
+│   │   ├── project-ready-scheduler.yml    # Loop Ready -> Orchestrator (workflow_run com cooldown de 1h)
 │   │   ├── project-ready-orchestrator.yml # Executor: Ready -> In progress -> In review
 │   │   └── project-done-on-merge.yml      # Merge PR -> Done no Project
 ├── scripts/
@@ -192,8 +192,7 @@ Use este agent para operacao automatizada via GitHub Project:
 - no merge da PR, mover card para `Done` automaticamente (sem fechar issue manualmente)
 
 Agendamento automatico:
-- `.github/workflows/project-ready-scheduler.yml` roda em loop por `workflow_run` do orquestrador (cooldown de 5 min), com `cron` como backup.
-- `push` em `main` tambem pode bootstrapar o scheduler automaticamente.
+- `.github/workflows/project-ready-scheduler.yml` roda em loop por `workflow_run` do orquestrador com cooldown de 1 hora.
 - `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
 - `.github/workflows/project-done-on-merge.yml` roda no merge da PR e sincroniza o card para `Done`.
 - Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.

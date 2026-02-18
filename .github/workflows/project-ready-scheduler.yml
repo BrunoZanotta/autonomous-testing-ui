@@ -1,12 +1,7 @@
 name: Project Ready Scheduler
 
 on:
-  schedule:
-    - cron: '3-59/5 * * * *'
   workflow_dispatch:
-  push:
-    branches:
-      - main
   workflow_run:
     workflows:
       - Project Ready Orchestrator
@@ -32,9 +27,9 @@ jobs:
           echo "ref=${GITHUB_REF}"
           date -u '+%Y-%m-%d %H:%M:%S UTC'
 
-      - name: Cooldown before next cycle
+      - name: Cooldown before next cycle (1 hour)
         if: github.event_name == 'workflow_run'
-        run: sleep 300
+        run: sleep 3600
 
       - name: Dispatch Project Ready Orchestrator
         uses: actions/github-script@v7
