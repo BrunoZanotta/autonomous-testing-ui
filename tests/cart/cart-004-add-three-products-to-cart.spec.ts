@@ -1,25 +1,28 @@
 import { test } from '../../fixtures/app.fixture';
 
 test.describe('Shopping Cart Tests', { tag: '@cart' }, () => {
-  test('Cart Two Products Validation', { tag: '@regression' }, async ({ authenticatedPage: _authenticatedPage, inventoryPage, cartPage, checkoutPage }) => {
+  test('Cart Three Products Validation', { tag: '@regression' }, async ({ authenticatedPage: _authenticatedPage, inventoryPage, cartPage, checkoutPage }) => {
     await test.step('Step 1: Assert On Inventory Page', async () => {
       await inventoryPage.assertOnInventoryPage();
       await inventoryPage.assertProductCardDetailsFor('onesie');
       await inventoryPage.assertProductCardDetailsFor('bikeLight');
+      await inventoryPage.assertProductCardDetailsFor('backpack');
     });
 
     await test.step('Step 2: Add Product To Cart By Key', async () => {
       await inventoryPage.addProductToCartByKey('onesie');
       await inventoryPage.addProductToCartByKey('bikeLight');
-      await inventoryPage.assertCartBadgeCount(2);
+      await inventoryPage.addProductToCartByKey('backpack');
+      await inventoryPage.assertCartBadgeCount(3);
     });
 
     await test.step('Step 3: Go To Cart', async () => {
       await inventoryPage.goToCart();
       await cartPage.assertOnCartPage();
-      await cartPage.assertCartItemCount(2);
+      await cartPage.assertCartItemCount(3);
       await cartPage.assertProductDetailsInCartByKey('onesie');
       await cartPage.assertProductDetailsInCartByKey('bikeLight');
+      await cartPage.assertProductDetailsInCartByKey('backpack');
     });
 
     await test.step('Step 4: Proceed To Checkout', async () => {
@@ -33,7 +36,8 @@ test.describe('Shopping Cart Tests', { tag: '@cart' }, () => {
       await checkoutPage.assertOnCheckoutOverviewPage();
       await checkoutPage.assertProductInOverviewByKey('onesie');
       await checkoutPage.assertProductInOverviewByKey('bikeLight');
-      await checkoutPage.assertSubtotalEqualsProductSum(['onesie', 'bikeLight']);
+      await checkoutPage.assertProductInOverviewByKey('backpack');
+      await checkoutPage.assertSubtotalEqualsProductSum(['onesie', 'bikeLight', 'backpack']);
       await checkoutPage.assertTotalEqualsSubtotalPlusTax();
     });
   });
