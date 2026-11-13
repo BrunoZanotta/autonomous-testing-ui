@@ -1,90 +1,95 @@
-# 🤖 Autonomous Testing UI
+# Autonomous Testing UI
 
-![Node.js](https://img.shields.io/badge/Node.js-18+-brightgreen)
-![Playwright](https://img.shields.io/badge/Playwright-1.56-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![Playwright](https://img.shields.io/badge/Playwright-1.56.1-2EAD33)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933)
+![Tests](https://img.shields.io/badge/tests-12-1f6feb)
+![Spec files](https://img.shields.io/badge/spec%20files-11-1f6feb)
 
----
+End-to-end UI automation for the [Sauce Demo](https://www.saucedemo.com) storefront: login, inventory, cart, and checkout. The suite uses the Page Object Model, custom Playwright fixtures, tag-based runs, a staged GitHub Actions workflow, a governance gate, and versioned QA agent definitions.
 
-## 🚀 Visão Geral
+The base URL and account values come from the environment. Page objects hold the store catalog, checkout profiles, and the copy the specs assert.
 
-Este projeto demonstra o poder do **Playwright 1.56** com **agentes de IA integrados** combinado com as **melhores práticas de automação de testes**:
+## Tech stack
 
-### 🤖 **Agentes de IA do Playwright**
-- **QA Strategy Planner**: Analisa o site e gera um plano de testes em Markdown
-- **QA Automation Generator**: Transforma o plano em código Playwright pronto para execução
-- **QA Reliability Healer**: Executa os testes e corrige automaticamente falhas de seletor, timeout e visibilidade
-- **QA Test Refactorer**: Refatora testes para manter padrao arquitetural, reduzir duplicacao e evitar flakiness
-- **QA Governance Guardian**: Faz o gate final de qualidade, arquitetura e segurança para impedir quebra de regras
-- **GitOps PR Orchestrator**: Cria branch, gera commit, faz push e abre PR no GitHub com guardrails
-- **GitHub Project Ready PR Orchestrator**: Consome card em Ready, entrega testes e move card para In Review apos PR
+Declared in [`package.json`](package.json). [`package-lock.json`](package-lock.json) resolves each range to the version below.
 
-### 🏗️ **Arquitetura Profissional**
-- **Page Object Model (POM)**: Código organizado e reutilizável
-- **Custom Fixtures**: Autenticação automática e Page Objects injetados
-- **Execução em Stages**: CI/CD inteligente com retry e bloqueio
-- **Sistema de Tags**: Organize e execute testes por categoria (@auth, @smoke, @regression)
+| Package | Range in `package.json` | Resolved version |
+| --- | --- | --- |
+| `@playwright/test` | `^1.56.1` | `1.56.1` |
+| `@types/node` | `^24.10.0` | `24.10.0` |
+| `dotenv` | `^17.3.1` | `17.3.1` |
 
-Tudo **rodando localmente**, sem custo e sem depender de serviços externos.
+`@playwright/test@1.56.1` requires Node.js `>=18`. The GitHub Actions workflows install Node with `node-version: lts/*`. This repository does not declare a `typescript` dependency or a `tsconfig`. Specs are `.ts` files loaded by Playwright.
 
----
+## What the suite covers
 
-## 📁 Estrutura do Projeto
+There are **11 spec files** and **12 tests**. Area tags sit on `test.describe`. `@smoke` and `@regression` sit on each `test`.
+
+| Spec | Test | Tags |
+| --- | --- | --- |
+| `tests/auth/auth-001-successful-login.spec.ts` | Successful Login | `@auth` `@smoke` |
+| `tests/auth/auth-002-failed-login-attempts.spec.ts` | Failed Login Attempts | `@auth` `@smoke` |
+| `tests/inventory/inv-001-product-listing.spec.ts` | Product Listing | `@inventory` `@regression` |
+| `tests/inventory/inv-002-product-sorting.spec.ts` | Product Sorting | `@inventory` `@regression` |
+| `tests/inventory/inv-003-onesie-product-details.spec.ts` | Onesie Product Details | `@inventory` `@regression` |
+| `tests/cart/cart-001-add-products.spec.ts` | Add Products to Cart | `@cart` `@smoke` |
+| `tests/cart/cart-002-cart-management.spec.ts` | Cart Management | `@cart` `@regression` |
+| `tests/cart/cart-003-add-two-products-to-cart.spec.ts` | Cart Two Products Validation | `@cart` `@regression` |
+| `tests/cart/cart-004-add-three-products-to-cart.spec.ts` | Cart Three Products Validation | `@cart` `@regression` |
+| `tests/cart/cart-005-add-four-products-to-cart.spec.ts` | Cart Four Products Validation | `@cart` `@regression` |
+| `tests/checkout/check-001-checkout-information.spec.ts` | Checkout Information | `@checkout` `@smoke` |
+| `tests/checkout/check-001-checkout-information.spec.ts` | Checkout Overview Supports Duplicate Product Prices | `@checkout` `@regression` |
+
+Tag totals: `@auth` 2, `@inventory` 3, `@cart` 5, `@checkout` 2, `@smoke` 4, `@regression` 8.
+
+`playwright.config.ts` registers five projects. A command that does not pass `--project` runs each of the 12 tests on every project:
+
+| Project | Device preset |
+| --- | --- |
+| `chromium` | Desktop Chrome |
+| `firefox` | Desktop Firefox |
+| `webkit` | Desktop Safari |
+| `mobile-chrome` | Pixel 5 |
+| `mobile-safari` | iPhone 12 |
+
+The GitHub Actions test jobs pass `--project=chromium`.
+
+## Project structure
 
 ```
 autonomous-testing-ui/
-├── pages/              # Page Objects (POM)
-│   ├── LoginPage.ts
-│   ├── InventoryPage.ts
+├── pages/
+│   ├── LoginPage.ts            # URLs, users from env, auth errors, login actions
+│   ├── AuthSessionPage.ts      # Standard-user session bootstrap
+│   ├── InventoryPage.ts        # Catalog, sort options, inventory actions
 │   ├── CartPage.ts
-│   └── CheckoutPage.ts
-├── fixtures/           # Custom Fixtures
-│   └── app.fixture.ts
-├── tests/             # Testes organizados por módulo
-│   ├── auth/         # @auth @smoke
-│   ├── inventory/    # @inventory @regression
-│   ├── cart/         # @cart @smoke @regression
-│   └── checkout/     # @checkout @smoke
-├── .github/
-│   ├── agents/
-│   │   └── playwright/
-│   │       ├── qa-planner.agent.md
-│   │       ├── qa-generator.agent.md
-│   │       ├── qa-healer.agent.md
-│   │       ├── qa-test-refactorer.agent.md
-│   │       ├── qa-governance-guardian.agent.md
-│   │       ├── gitops-pr-orchestrator.agent.md
-│   │       └── github-project-ready-pr-orchestrator.agent.md
-│   ├── workflows/
-│   │   ├── playwright.yml                  # CI/CD em stages
-│   │   ├── project-ready-scheduler.yml    # Loop Ready -> Orchestrator (workflow_run com cooldown de 1h)
-│   │   ├── project-ready-orchestrator.yml # Executor: Ready -> In progress -> In review
-│   │   └── project-done-on-merge.yml      # Merge PR -> Done no Project
+│   └── CheckoutPage.ts         # Checkout profiles and expected summary copy
+├── fixtures/
+│   └── app.fixture.ts          # Page objects and authenticatedPage
+├── tests/
+│   ├── auth/                   # 2 specs, 2 tests
+│   ├── inventory/              # 3 specs, 3 tests
+│   ├── cart/                   # 5 specs, 5 tests
+│   └── checkout/               # 1 spec, 2 tests
 ├── scripts/
-│   ├── ci/
-│   │   └── governance-gate.mjs
-│   └── git/
-│       ├── project-ready-item.mjs
-│       ├── project-ready-to-pr.mjs
-│       ├── project-pr-merge-to-done.mjs
-│       ├── project-move-item.mjs
-│       └── project-ready-work.mjs
-└── playwright.config.ts
+│   ├── ci/governance-gate.mjs
+│   ├── lib/cli.mjs
+│   └── git/                    # Project board and pull-request helpers
+├── .github/
+│   ├── agents/playwright/      # 7 agent definitions
+│   └── workflows/              # Test stages and project-board workflows
+├── .vscode/mcp.json            # Playwright MCP and GitHub MCP
+├── docs/GITHUB_ACTIONS_SETUP.md
+├── llms.txt                    # Agent delivery contract
+├── playwright.config.ts
+└── package.json
 ```
 
----
+`fixtures/app.fixture.ts` injects `loginPage`, `inventoryPage`, `cartPage`, `checkoutPage`, and `authSessionPage`. The `authenticatedPage` fixture signs in through `AuthSessionPage.bootstrapAuthenticatedSession()` before the test body runs.
 
-## 🧩 Requisitos
+Inventory data lives in `STORE_PRODUCTS` (six products). Checkout data lives in `CHECKOUT_PROFILES`, `CHECKOUT_EXPECTED`, and `CHECKOUT_ERROR_MESSAGES`. Login routes and auth error strings live in `LoginPage.ts`.
 
-- Node.js 18 ou superior
-- NPM 9+
-- VS Code (opcional, para integração com MCP)
-- Playwright 1.56.1 ou superior
-
----
-
-## ⚙️ Instalação
+## Setup
 
 ```bash
 git clone https://github.com/BrunoZanotta/autonomous-testing-ui.git
@@ -93,374 +98,168 @@ npm ci
 npx playwright install --with-deps
 ```
 
----
+`npm run pw:install` runs the same Playwright browser install.
 
-## 🧠 Ativando os Agentes de IA
-
-Inicialize os agentes de IA do Playwright:
+`playwright.config.ts` loads `.env` through `dotenv/config` and throws if `BASE_URL` is missing. `.env` is listed in `.gitignore`. Create it locally with:
 
 ```bash
-npx playwright init-agents --loop=vscode
+BASE_URL=
+APP_USER_STANDARD_USERNAME=
+APP_USER_STANDARD_PASSWORD=
+APP_USER_LOCKED_USERNAME=
+APP_USER_LOCKED_PASSWORD=
+APP_USER_INVALID_USERNAME=
+APP_USER_INVALID_PASSWORD=
 ```
 
-Este repositório versiona os agentes em um padrão profissional em:
+`LoginPage` reads `BASE_URL` when the module loads. The three accounts are read when a login method calls them. The standard account is the successful login and the session bootstrap. The locked and invalid accounts are the failed-login spec.
 
-- `.github/agents/playwright/qa-planner.agent.md`
-- `.github/agents/playwright/qa-generator.agent.md`
-- `.github/agents/playwright/qa-healer.agent.md`
-- `.github/agents/playwright/qa-test-refactorer.agent.md`
-- `.github/agents/playwright/qa-governance-guardian.agent.md`
-- `.github/agents/playwright/gitops-pr-orchestrator.agent.md`
-- `.github/agents/playwright/github-project-ready-pr-orchestrator.agent.md`
+In GitHub Actions, `playwright.yml` and `project-ready-orchestrator.yml` map the same names from repository variables (`BASE_URL` and the three usernames) and secrets (the three passwords). Project automation also uses the `GH_PROJECT_TOKEN` secret. Names and setup commands are in [`docs/GITHUB_ACTIONS_SETUP.md`](docs/GITHUB_ACTIONS_SETUP.md).
 
-Se quiser bootstrap automático de MCP para Playwright + GitHub, você ainda pode usar:
+`.vscode/mcp.json` points the GitHub MCP server at `Authorization: Bearer ${env:GITHUB_PAT_TOKEN}`. That variable is for the editor MCP server. The test runner does not read it.
 
-- `.vscode/mcp.json`
-- Export necessário para GitHub MCP: `GITHUB_PAT_TOKEN`
-- Política de versionamento: somente `mcp.json` deve ser versionado em `.vscode`
+## Running tests
 
----
+| Script | Command |
+| --- | --- |
+| `npm test` | `playwright test` |
+| `npm run test:ci` | `playwright test --retries=2 --reporter=html` |
+| `npm run test:auth` | `playwright test --grep @auth` |
+| `npm run test:auth:retry` | `playwright test --grep @auth --retries=3` |
+| `npm run test:smoke` | `playwright test --grep @smoke` |
+| `npm run test:regression` | `playwright test --grep @regression` |
+| `npm run test:inventory` | `playwright test --grep @inventory` |
+| `npm run test:cart` | `playwright test --grep @cart` |
+| `npm run test:checkout` | `playwright test --grep @checkout` |
+| `npm run test:update-snapshots` | `playwright test --update-snapshots` |
 
-## 🎭 Usando os Agentes
+Local defaults from `playwright.config.ts`: `fullyParallel: true`, retries `0`, workers unset, test timeout `30000`, expect timeout `5000`, action and navigation timeouts `10000`. When `CI` is set, `forbidOnly` is on, retries are `2`, and workers are `1`. The `testIdAttribute` is `data-test`.
 
-### 1️⃣ QA Strategy Planner – Gerar Plano de Testes
+Useful filters:
 
 ```bash
-npx playwright agent planner --site=https://www.saucedemo.com --instructions="Plano POM: login, catálogo, carrinho, checkout."
+npx playwright test --grep @auth
+npx playwright test --grep-invert @smoke
+npx playwright test --grep "@auth.*@smoke"
+npx playwright test --project=chromium
+npx playwright test --debug
+npx playwright test --ui
 ```
 
-**Output:** `plan.md` com plano detalhado de testes
-
-### 2️⃣ QA Automation Generator – Criar os Testes
-
-```bash
-npx playwright agent generator --plan=plan.md
-```
-
-**Output:** Testes Playwright gerados automaticamente
-
-### 3️⃣ QA Reliability Healer – Corrigir Testes com Falha
-
-```bash
-npx playwright agent healer
-```
-
-**Output:** Testes corrigidos automaticamente (seletores, timeouts, etc.)
-
-### 4️⃣ QA Governance Guardian – Validar Regras no Final
-
-Use este agent como etapa final para validar:
-- exposição de dados sensíveis
-- aderência a padrões de arquitetura
-- prevenção de flakiness e waits proibidos
-
-**Output:** Governance Gate Report com status PASS/FAIL e findings por severidade
-
-### 5️⃣ GitOps PR Orchestrator – Branch, Commit e PR
-
-Use este agent para automatizar entrega:
-- criar branch padronizada
-- gerar commit convencional
-- fazer push para origin
-- abrir PR no GitHub
-
-Script de apoio:
-```bash
-node ./scripts/git/create-pr-flow.mjs <branch> <commit-message> [base-branch] [pr-title] [pr-body-file]
-```
-
-### 6️⃣ QA Test Refactorer – Refatoracao Contínua
-
-Use este agent quando houver necessidade de melhorar estrutura dos testes:
-- remover duplicacao
-- mover assertions e selectors para Page Objects
-- reforcar padrao fixtures/pages/tests
-
-### 7️⃣ GitHub Project Ready PR Orchestrator – Ready -> In Review
-
-Pre-requisito de escopo no gh:
-```bash
-gh auth refresh -s read:project -s project
-```
-
-Use este agent para operacao automatizada via GitHub Project:
-- buscar card em `Ready` no projeto `BrunoZanotta/3`
-- criar branch e testes automatizados
-- rodar testes e governance gate
-- criar commit e abrir PR
-- mover card para `In Review` apos criacao do PR
-- no merge da PR, mover card para `Done` automaticamente (sem fechar issue manualmente)
-
-Agendamento automatico:
-- `.github/workflows/project-ready-scheduler.yml` roda em loop por `workflow_run` do orquestrador com cooldown de 1 hora.
-- `.github/workflows/project-ready-orchestrator.yml` executa o fluxo e tambem permite `workflow_dispatch`.
-- `.github/workflows/project-done-on-merge.yml` roda no merge da PR e sincroniza o card para `Done`.
-- Sem interação no terminal: basta o card estar em `Ready` para entrar no próximo ciclo.
-- Labels de tipo (`bug` / `new test`) são recomendadas; sem label o fluxo infere o tipo pelo título/corpo e usa fallback `newTest`.
-- Se o card for genérico (sem pista de inventory/cart), o gerador aplica fallback para um cenário padrão de carrinho com dois produtos.
-- Para o sync de `Done`, a PR precisa referenciar a issue (`Refs #<numero>` ou `Closes #<numero>`); o fluxo automatico já inclui `Refs`.
-- Se a PR nao tiver referencia explicita, o sync usa fallback pela URL da PR registrada no comentario automatico da issue.
-
-Scripts de apoio:
-```bash
-node ./scripts/git/project-ready-item.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui Ready
-node ./scripts/git/project-ready-to-pr.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui main
-node ./scripts/git/project-pr-merge-to-done.mjs BrunoZanotta 3 BrunoZanotta/autonomous-testing-ui <pr_number> Done
-node ./scripts/git/project-move-item.mjs BrunoZanotta 3 <item_id> "In Review"
-```
-
----
-
-## 🧬 Executando os Testes
-
-### Execução Local
-
-```bash
-# Todos os testes
-npm test
-
-# Apenas testes de autenticação
-npm run test:auth
-
-# Autenticação com 3 retries
-npm run test:auth:retry
-
-# Apenas smoke tests (críticos)
-npm run test:smoke
-
-# Apenas regression tests
-npm run test:regression
-
-# Por categoria
-npm run test:inventory
-npm run test:cart
-npm run test:checkout
-```
-
-### Relatórios
-
-```bash
-# Abrir relatório HTML
-npx playwright show-report
-```
-
----
-
-## 🎯 Estratégia de Testes - CI/CD em Stages
-
-Este projeto implementa **execução em stages** no GitHub Actions com retry inteligente:
-
-```
-Stage 1: 🔐 Auth Tests (3 retries, BLOQUEANTE)
-    ↓ (só continua se passar)
-Stage 2: 💨 Smoke Tests (2 retries)
-    ↓ (só continua se passar)
-Stage 3: 🧪 Regression Tests (2 retries)
-    ↓ (só continua se passar)
-Stage 4: 🌐 Full Suite Multi-Browser (Chromium, Firefox, WebKit)
-    ↓ (se falhar)
-Stage 5: 🔧 Auto-Heal Snapshots (cria PR automaticamente)
-```
-
-### 🏷️ Tags Disponíveis
-
-**Por Categoria:**
-- `@auth` - Testes de autenticação
-- `@inventory` - Testes de inventário
-- `@cart` - Testes de carrinho
-- `@checkout` - Testes de checkout
-
-**Por Tipo:**
-- `@smoke` - Testes críticos (devem sempre passar)
-- `@regression` - Testes completos de regressão
-
-### 💡 Benefícios da Abordagem
-
-✅ **Feedback Ultra-Rápido:** Falhas de auth detectadas em ~10s
-✅ **Economia de Recursos:** Pipeline para se crítico falhar (~70% economia)
-✅ **Confiabilidade:** 3 retries em auth garantem que falhas são reais
-✅ **Organização:** Testes agrupados logicamente por tags
-
-📖 **Documentação completa:** [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
-📖 **Setup de automação GitHub:** [docs/GITHUB_ACTIONS_SETUP.md](./docs/GITHUB_ACTIONS_SETUP.md)
-
----
-
-## 📊 Exemplo de Execução CI/CD
-
-### ✅ Cenário: Tudo Passa
-
-```
-🔐 Auth Tests (3 retries)      ✅ PASSED  (~10s)
-        ↓
-💨 Smoke Tests (2 retries)      ✅ PASSED  (~20s)
-        ↓
-🧪 Regression Tests             ✅ PASSED  (~15s)
-        ↓
-🌐 Multi-Browser Suite          ✅ PASSED  (~30s)
-        ↓
-✅ PIPELINE SUCCESS             Total: ~75s
-```
-
-### ❌ Cenário: Auth Falha
-
-```
-🔐 Auth Tests
-   Attempt 1: ❌ FAILED
-   Attempt 2: ❌ FAILED
-   Attempt 3: ❌ FAILED
-        ↓
-❌ PIPELINE STOPPED
-   (Stages 2, 3, 4 NÃO executam)
-        ↓
-🔧 Auto-Heal Triggered
-   Creates PR with fixes
-```
-
----
-
-## 🎨 Exemplos de Código
-
-### Page Object Example
+A tagged example from the suite:
 
 ```typescript
-// pages/LoginPage.ts
-export class LoginPage {
-  readonly page: Page;
-  readonly usernameInput: Locator;
-  readonly passwordInput: Locator;
-  readonly loginButton: Locator;
-
-  constructor(page: Page) {
-    this.page = page;
-    this.usernameInput = page.locator('[data-test="username"]');
-    this.passwordInput = page.locator('[data-test="password"]');
-    this.loginButton = page.locator('[data-test="login-button"]');
-  }
-
-  async login(username: string, password: string) {
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    await this.loginButton.click();
-  }
-}
-```
-
-### Teste com Fixtures e Tags
-
-```typescript
-import { test } from '../../fixtures/app.fixture';
-
 test.describe('Authentication Tests', { tag: '@auth' }, () => {
   test('Successful Login', { tag: '@smoke' }, async ({ loginPage, inventoryPage }) => {
-    await loginPage.goto();
-    await loginPage.loginAsStandardUser();
-    await loginPage.assertLoginSuccess();
-    await inventoryPage.assertOnInventoryPage();
-    await inventoryPage.assertShoppingCartLinkVisible();
+    await test.step('Step 1: Goto', async () => {
+      await loginPage.goto();
+      await loginPage.loginAsStandardUser();
+      await loginPage.assertLoginSuccess();
+      await inventoryPage.assertOnInventoryPage();
+      await inventoryPage.assertShoppingCartLinkVisible();
+    });
   });
 });
 ```
 
----
+## Reports
 
-## 🛠️ Comandos Úteis
-
-### Playwright CLI
+The config reporters are HTML (`open: 'never'`) and list. HTML output goes to `playwright-report/`. Open the last HTML report with:
 
 ```bash
-# Executar com grep por tag
-npx playwright test --grep @auth
-
-# Executar excluindo uma tag
-npx playwright test --grep-invert @smoke
-
-# Executar combinando tags
-npx playwright test --grep "@auth.*@smoke"
-
-# Executar em browser específico
-npx playwright test --grep @smoke --project=chromium
-
-# Modo debug
-npx playwright test --debug
-
-# Modo UI interativo
-npx playwright test --ui
-
-# Gerar relatório
 npx playwright show-report
 ```
 
----
+Traces are `on-first-retry`. Video is `retain-on-failure`. Screenshots are `only-on-failure`. Those files land under `test-results/`. Both directories are gitignored.
 
-## 🔍 Características do Projeto
+`npm run governance:gate` runs `node ./scripts/ci/governance-gate.mjs governance-gate-report.md`. The script writes a Markdown report with status `PASS` or `FAIL`, counts for `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, and `ENV_BLOCKER`, and one line per finding. It exits with code `1` when any `CRITICAL` or `HIGH` finding is present. The report says that the CI gate does not apply an automatic fix. `governance-gate-report*.md` is gitignored.
 
-### ✅ Page Object Model (POM)
-- Separação clara entre lógica de página e testes
-- Reutilização de código
-- Fácil manutenção
+The gate checks, inside `fixtures`, `pages`, `tests`, `.github`, `playwright.config.ts`, `package.json`, and `.gitignore`:
 
-### ✅ Custom Fixtures
-- Login automático com `authenticatedPage`
-- Page Objects injetados automaticamente
-- Redução de 70% de código duplicado
+- `.env` is ignored and is not tracked
+- private-key and token signatures
+- hardcoded credential strings in pages, fixtures, tests, `.github`, `playwright.config.ts`, and `README.md`
+- `expect(` in `tests/`
+- direct `page` or locator calls in `tests/`
+- `expect(` in `fixtures/`
+- `waitForTimeout`, `sleep`, `setTimeout`, and `networkidle` in `fixtures/`, `pages/`, and `tests/`
+- a hardcoded base URL or demo usernames in `pages/LoginPage.ts`
+- `npx playwright test --list --project=chromium` (failure is recorded as `ENV_BLOCKER`)
 
-### ✅ Centralização de Dados
-- **LoginPage.ts**: URLs, usuários de teste e mensagens de autenticação
-- **InventoryPage.ts**: catálogo de produtos e regras de ordenação
-- **CheckoutPage.ts**: perfis de checkout e expectativas de resumo
+## CI pipeline
 
-### ✅ CI/CD Inteligente
-- Execução em stages sequenciais
-- Retry configurável por stage
-- Auto-heal com PR automático
-- Multi-browser paralelo
+Workflow file: [`.github/workflows/playwright.yml`](.github/workflows/playwright.yml), named **Playwright CI - Staged Execution**.
 
-### ✅ Sistema de Tags
-- Organização por categoria e tipo
-- Execução seletiva de testes
-- Fácil filtragem no CI/CD
+It runs on `pull_request` to `main` or `master` (`opened`, `synchronize`, `reopened`, `ready_for_review`) and on `workflow_dispatch`. Concurrency group `playwright-ci-<workflow>-<pull request or ref>` cancels an in-progress run. Permissions are `contents: write` and `pull-requests: write`. Every job uses `ubuntu-latest` and Node.js `lts/*`.
 
----
+| Job | Needs | Timeout | What it runs |
+| --- | --- | --- | --- |
+| Authentication Tests (`auth-tests`) | — | 20 min | `npm run test:auth:retry -- --project=chromium --reporter=html,list` (`@auth`, 3 retries) |
+| Smoke Tests (`smoke-tests`) | `auth-tests` | 20 min | `npm run test:smoke -- --project=chromium --retries=2 --reporter=html,list` |
+| Regression Tests (`regression-tests`) | `smoke-tests` | 30 min | `npm run test:regression -- --project=chromium --retries=2 --reporter=html,list` |
+| Full Suite (Chromium) (`full-test-suite`) | the three jobs above | 45 min | `npx playwright test --project=chromium --retries=2 --reporter=html,list` |
+| Auto-Heal Snapshots (`auto-heal`) | the four jobs above | 25 min | Snapshot update on a failing same-repo pull request |
+| Governance Gate (`governance-gate`) | the five jobs above | 15 min | `node ./scripts/ci/governance-gate.mjs governance-gate-report.md` |
 
-## 📈 Melhorias Implementadas
+Each test job checks out the repo, runs `npm ci`, installs Chromium with system dependencies, and uploads `playwright-report/` plus `test-results/` with `if: always()` and `retention-days: 14`. Artifact names: `auth-test-results`, `smoke-test-results`, `regression-test-results`, `full-suite-chromium-results`.
 
-| Aspecto | Antes | Depois |
-|---------|-------|--------|
-| **Código Duplicado** | Login em todos os testes | Fixture `authenticatedPage` |
-| **Organização** | Testes na raiz | Pastas por módulo |
-| **Seletores** | Hardcoded em cada teste | Centralizados em Page Objects |
-| **Dados** | Strings hardcoded | Constantes centralizadas |
-| **CI/CD** | Todos os testes sempre | Stages com bloqueio |
-| **Browsers** | Apenas Chromium | 5 browsers/devices |
-| **Feedback** | ~5min para tudo | ~10s para auth |
-| **Manutenção** | Difícil | Fácil com POM |
+`smoke-tests` waits for `auth-tests`. `regression-tests` waits for `smoke-tests`. `full-test-suite` waits for all three. Those jobs target the `chromium` project.
 
----
+`auto-heal` runs when the event is `pull_request`, the head repository is this repository, and at least one of the four test jobs has result `failure`. It checks out the pull request head, runs `npx playwright test --project=chromium --update-snapshots --retries=1 --reporter=list` with `continue-on-error: true`, and counts changed snapshot files. When that count is not zero, it commits `chore(heal): update Playwright snapshots [auto-heal]`, pushes to the pull request head branch, and comments on the pull request.
 
-## 🧪 Resultados dos Testes
+`governance-gate` uses `if: always()`. It uploads `governance-gate-report.md` as `governance-gate-report` for 14 days.
 
+### Other workflows
+
+These files are separate from the staged test jobs.
+
+| Workflow | File | Trigger | Behavior |
+| --- | --- | --- | --- |
+| Project Ready Scheduler | `project-ready-scheduler.yml` | `workflow_dispatch`, and `workflow_run` when **Project Ready Orchestrator** completes | On `workflow_run`, sleeps 3600 seconds, then dispatches `project-ready-orchestrator.yml` on `main` with `GH_PROJECT_TOKEN` |
+| Project Ready Orchestrator | `project-ready-orchestrator.yml` | `workflow_dispatch`, and `repository_dispatch` type `project-ready-tick` | If `GH_PROJECT_TOKEN` is set, looks for a `Ready` card on GitHub Project `BrunoZanotta/3` for `BrunoZanotta/autonomous-testing-ui`. When a card is present, installs dependencies and Chromium, then runs `project-ready-to-pr.mjs` with base branch `main`. Timeout 45 min. |
+| Project Done On PR Merge | `project-done-on-merge.yml` | `pull_request` type `closed`, and only when the pull request merged | If `GH_PROJECT_TOKEN` is set, runs `project-pr-merge-to-done.mjs` for project number `vars.PROJECT_NUMBER` or `3`, status `Done` |
+
+The orchestrator job name is `Ready -> Branch/Test/PR -> In review`. Its environment sets `READY_STATUS=Ready`, `IN_PROGRESS_STATUS=In progress`, `IN_REVIEW_STATUS=In review`, and `WORK_CMD` from `vars.PROJECT_READY_WORK_CMD` or `node ./scripts/git/project-ready-work.mjs`.
+
+Helper scripts, also exposed as npm scripts:
+
+```bash
+npm run project:ready:item
+npm run project:ready:move
+npm run project:ready:to-pr
+npm run project:pr:merge:done
+npm run project:create-pr-flow
+npm run project:ready:work
+npm run actions:verify
 ```
-✅ 2 testes @auth       (Authentication)
-✅ 2 testes @inventory  (Product Listing & Sorting)
-✅ 2 testes @cart       (Add & Management)
-✅ 1 teste  @checkout   (Checkout Info)
 
-Total: 8 passed em ~5s
-```
+`actions:verify` runs `node ./scripts/git/verify-actions-setup.mjs`.
 
----
+## AI agents
 
-## 🎓 Referências
+Seven definitions live in [`.github/agents/playwright/`](.github/agents/playwright/). The catalog is [`.github/agents/README.md`](.github/agents/README.md). [`llms.txt`](llms.txt) is the delivery contract for creating a test or picking up a Ready card: branch, implement, validate, run the governance gate, open a pull request, and move the card.
 
-- [📘 Documentação Playwright](https://playwright.dev/docs/intro)
-- [🧩 Notas da versão 1.56](https://playwright.dev/docs/release-notes#version-156)
-- [🏷️ Playwright Tags](https://playwright.dev/docs/test-annotations#tag-tests)
-- [🤖 Playwright AI Agents](https://playwright.dev/docs/ai-agents)
-- [⚙️ GitHub Actions](https://docs.github.com/en/actions/using-jobs/using-jobs-in-a-workflow#defining-prerequisite-jobs)
+| Agent file | Role written in the file |
+| --- | --- |
+| `qa-planner.agent.md` | Explores the app with Playwright planner tools and writes a scenario plan (title, tags, preconditions, fixtures, page-object responsibilities, steps, expected outcomes) for the generator and healer. |
+| `qa-generator.agent.md` | Turns a plan into layered Playwright tests: fixtures for setup, page objects for selectors, actions, assertions, and domain data, specs for steps. |
+| `qa-healer.agent.md` | Re-runs a failing test, reads trace, screenshot, video, console, and network evidence, classifies the failure, and applies a small stabilization fix. |
+| `qa-test-refactorer.agent.md` | Refactors existing specs when it finds duplication, inline selectors or assertions, domain literals in tests, or fragile waits, and keeps the scenario intent. |
+| `qa-governance-guardian.agent.md` | Final review for secrets, the fixtures/pages/tests split, and prohibited waits. The CI job runs `scripts/ci/governance-gate.mjs`, which reports findings and does not edit files. |
+| `gitops-pr-orchestrator.agent.md` | Creates a branch, checks governance, commits with a conventional message, pushes, and opens a pull request. The helper is `scripts/git/create-pr-flow.mjs`. |
+| `github-project-ready-pr-orchestrator.agent.md` | Works GitHub Project `BrunoZanotta/3`: takes `Ready` cards (`bugfix` before `newTest`, then `P0`, `P1`, `P2`), moves the card to `In progress`, and to `In review` after the pull request. |
 
----
+`.vscode/mcp.json` is the versioned MCP config. It starts `@playwright/mcp@latest` over stdio and a GitHub MCP HTTP server. Other files under `.vscode/` are gitignored.
 
-## 👨‍💻 Autor
+## Highlights
 
-Bruno Zanotta - QA Automation Specialist | AI | Quality Engineering - [LinkedIn](https://www.linkedin.com/in/bruno-zanotta-qa/)
+- Page objects for login, session bootstrap, inventory, cart, and checkout, with catalog and checkout data kept next to the actions.
+- One fixture module injects those page objects and an authenticated session.
+- Twelve tests in eleven spec files, filtered by `@auth`, `@inventory`, `@cart`, `@checkout`, `@smoke`, and `@regression`.
+- Five browser and device projects locally. The staged CI jobs run the Chromium project and upload HTML output, traces, videos, and screenshots for 14 days.
+- A governance script gates the workflow on secrets, layering, and waits, and writes `governance-gate-report.md`.
+- Versioned planner, generator, healer, refactorer, governance, GitOps, and project-board agent definitions, plus the project workflows that call the Node helpers.
+
+## Author
+
+Bruno Zanotta — QA Automation Specialist | AI | Quality Engineering — [LinkedIn](https://www.linkedin.com/in/bruno-zanotta-qa/)
